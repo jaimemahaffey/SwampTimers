@@ -1,0 +1,88 @@
+@using BlazorMudApp.Models
+
+<MudPaper Class="pa-4">
+    <MudTextField @bind-Value="Timer.Name"
+                  Label="Timer Name"
+                  Required="true"
+                  Variant="Variant.Outlined"
+                  Class="mb-3" />
+
+    <MudTextField @bind-Value="Timer.Description"
+                  Label="Description"
+                  Lines="2"
+                  Variant="Variant.Outlined"
+                  Class="mb-3" />
+
+    <MudTimePicker @bind-Time="_startTime"
+                   Label="Start Time"
+                   Variant="Variant.Outlined"
+                   Class="mb-3" />
+
+    <MudNumericField @bind-Value="Timer.DurationMinutes"
+                     Label="Duration (minutes)"
+                     Min="1"
+                     Max="1440"
+                     Variant="Variant.Outlined"
+                     Class="mb-3" />
+
+    <MudText Typo="Typo.subtitle2" Class="mb-2">Active Days (leave empty for every day)</MudText>
+    <MudStack Row="true" Spacing="1" Class="mb-3">
+        @foreach (DayOfWeek day in Enum.GetValues(typeof(DayOfWeek)))
+        {
+            <MudChip T="string"
+                     Size="Size.Small"
+                     Color="@(Timer.ActiveDays.Contains(day) ? Color.Primary : Color.Default)"
+                     OnClick="@(() => ToggleDay(day))">
+                @day.ToString().Substring(0, 3)
+            </MudChip>
+        }
+    </MudStack>
+
+    <MudSwitch @bind-Value="Timer.IsEnabled"
+               Label="Enabled"
+               Color="Color.Success" />
+
+    @if (ShowCalculatedEndTime)
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-3">
+            End Time: @GetEndTime().ToString("hh:mm tt")
+        </MudAlert>
+    }
+</MudPaper>
+
+@code {
+    [Parameter]
+    public DurationTimer Timer { get; set; } = new();
+
+    [Parameter]
+    public bool ShowCalculatedEndTime { get; set; } = true;
+
+    private TimeSpan? _startTime
+    {
+        get => Timer.StartTime.ToTimeSpan();
+        set
+        {
+            if (value.HasValue)
+            {
+                Timer.StartTime = TimeOnly.FromTimeSpan(value.Value);
+            }
+        }
+    }
+
+    private void ToggleDay(DayOfWeek day)
+    {
+        if (Timer.ActiveDays.Contains(day))
+        {
+            Timer.ActiveDays.Remove(day);
+        }
+        else
+        {
+            Timer.ActiveDays.Add(day);
+        }
+    }
+
+    private TimeOnly GetEndTime()
+    {
+        return Timer.StartTime.AddMinutes(Timer.DurationMinutes);
+    }
+}

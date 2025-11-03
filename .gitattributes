@@ -1,0 +1,29 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Source code
+*.cs text diff=csharp
+*.razor text
+*.cshtml text
+*.csproj text
+*.sln text merge=union
+*.config text
+*.json text
+
+# Documentation
+*.md text
+*.txt text
+
+# Scripts
+*.ps1 text eol=crlf
+*.sh text eol=lf
+
+# Binary files
+*.dll binary
+*.exe binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.db binary

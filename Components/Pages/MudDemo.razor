@@ -1,0 +1,83 @@
+@page "/muddemo"
+
+<PageTitle>MudBlazor Demo</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h3" GutterBottom="true">MudBlazor Component Demo</MudText>
+    <MudText Typo="Typo.body1" Class="mb-4">This page demonstrates several MudBlazor components.</MudText>
+
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" GutterBottom="true">Card with Button</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">
+                    This is a simple card component with some text and a button.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="HandleButtonClick">
+                    Click Me
+                </MudButton>
+                @if (clickCount > 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mt-2">Button clicked @clickCount time(s)</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" GutterBottom="true">Text Field</MudText>
+                <MudTextField @bind-Value="userName" Label="Enter your name" Variant="Variant.Outlined" />
+                @if (!string.IsNullOrWhiteSpace(userName))
+                {
+                    <MudText Typo="Typo.body2" Class="mt-2">Hello, @userName!</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" GutterBottom="true">Switch and Checkbox</MudText>
+                <MudSwitch @bind-Value="isEnabled" Color="Color.Primary" Label="Enable Feature" />
+                <MudCheckBox @bind-Value="isAgreed" Color="Color.Secondary">I agree to the terms</MudCheckBox>
+                @if (isEnabled && isAgreed)
+                {
+                    <MudAlert Severity="Severity.Success" Class="mt-2">All conditions met!</MudAlert>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" GutterBottom="true">Chips</MudText>
+                <MudChip T="string" Color="Color.Primary">Primary Chip</MudChip>
+                <MudChip T="string" Color="Color.Secondary">Secondary Chip</MudChip>
+                <MudChip T="string" Color="Color.Success">Success Chip</MudChip>
+                <MudChip T="string" Color="Color.Warning">Warning Chip</MudChip>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" GutterBottom="true">Progress and Rating</MudText>
+                <MudProgressLinear Color="Color.Primary" Value="@progressValue" Class="my-3" />
+                <MudSlider @bind-Value="progressValue" Min="0" Max="100">Progress: @progressValue%</MudSlider>
+                <MudRating @bind-SelectedValue="rating" />
+                <MudText Typo="Typo.body2">Your rating: @rating stars</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private int clickCount = 0;
+    private string userName = "";
+    private bool isEnabled = false;
+    private bool isAgreed = false;
+    private int progressValue = 50;
+    private int rating = 3;
+
+    private void HandleButtonClick()
+    {
+        clickCount++;
+    }
+}

@@ -1,0 +1,37 @@
+@using BlazorMudApp.Models
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        @if (Timer is DurationTimer durationTimer)
+        {
+            <DurationTimerEditor Timer="@durationTimer" />
+        }
+        else if (Timer is TimeRangeTimer timeRangeTimer)
+        {
+            <TimeRangeTimerEditor Timer="@timeRangeTimer" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined">Cancel</MudButton>
+        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public TimerSchedule? Timer { get; set; }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private void Submit()
+    {
+        MudDialog.Close(DialogResult.Ok(Timer));
+    }
+}

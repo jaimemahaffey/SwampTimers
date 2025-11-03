@@ -1,0 +1,96 @@
+@using BlazorMudApp.Models
+@using BlazorMudApp.Services
+@inject ITimerService TimerService
+@implements IDisposable
+
+<MudPaper Class="pa-4">
+    <MudText Typo="Typo.h6" GutterBottom="true">
+        Active Timers
+        @if (_activeTimers.Count > 0)
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Success">@_activeTimers.Count</MudChip>
+        }
+    </MudText>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Size="Size.Small" />
+    }
+    else if (_activeTimers.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">No timers currently active</MudText>
+    }
+    else
+    {
+        <MudList T="TimerSchedule" Dense="true">
+            @foreach (var timer in _activeTimers)
+            {
+                <MudListItem T="TimerSchedule" Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success">
+                    <MudText>
+                        <strong>@timer.Name</strong>
+                        @if (timer is DurationTimer dt)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Started: @dt.StartTime.ToString("hh:mm tt") | Duration: @dt.DurationMinutes min
+                            </MudText>
+                        }
+                        else if (timer is TimeRangeTimer tr)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                On: @tr.OnTime.ToString("hh:mm tt") | Off: @tr.OffTime.ToString("hh:mm tt")
+                            </MudText>
+                        }
+                    </MudText>
+                </MudListItem>
+            }
+        </MudList>
+    }
+
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
+        Last updated: @_lastUpdate.ToString("h:mm:ss tt")
+    </MudText>
+</MudPaper>
+
+@code {
+    [Parameter]
+    public int RefreshIntervalSeconds { get; set; } = 30;
+
+    private List<TimerSchedule> _activeTimers = new();
+    private bool _loading = false;
+    private DateTime _lastUpdate = DateTime.Now;
+    private System.Threading.Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshActiveTimers();
+
+        // Set up periodic refresh
+        _timer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await RefreshActiveTimers();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(RefreshIntervalSeconds), TimeSpan.FromSeconds(RefreshIntervalSeconds));
+    }
+
+    private async Task RefreshActiveTimers()
+    {
+        _loading = true;
+        try
+        {
+            _activeTimers = await TimerService.GetActiveAsync();
+            _lastUpdate = DateTime.Now;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}

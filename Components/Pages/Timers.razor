@@ -1,0 +1,228 @@
+@page "/timers"
+@using BlazorMudApp.Models
+@using BlazorMudApp.Services
+@inject ITimerService TimerService
+@inject IDialogService DialogService
+@rendermode InteractiveServer
+
+<PageTitle>Timer Schedules</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Timer Schedules</MudText>
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Filled"
+                      Color="Color.Primary"
+                      OnClick="@(() => OpenCreateDialog("Duration"))"
+                      StartIcon="@Icons.Material.Filled.Timer">
+                Add Duration Timer
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                      Color="Color.Secondary"
+                      OnClick="@(() => OpenCreateDialog("TimeRange"))"
+                      StartIcon="@Icons.Material.Filled.Schedule">
+                Add Time Range Timer
+            </MudButton>
+            <MudSpacer />
+            <MudButton Variant="Variant.Outlined"
+                      OnClick="LoadTimers"
+                      StartIcon="@Icons.Material.Filled.Refresh">
+                Refresh
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (_timers.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info">No timers configured. Click the buttons above to create your first timer.</MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var timer in _timers)
+            {
+                <MudItem xs="12" md="6" lg="4">
+                    <MudCard>
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudText Typo="Typo.h6">@timer.Name</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="@(timer.TimerType == "Duration" ? Color.Primary : Color.Secondary)">
+                                    @timer.TimerType
+                                </MudChip>
+                            </CardHeaderContent>
+                            <CardHeaderActions>
+                                <MudSwitch @bind-Value="timer.IsEnabled"
+                                          Color="Color.Success"
+                                          @onclick="@(() => ToggleTimer(timer.Id))" />
+                            </CardHeaderActions>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@timer.Description</MudText>
+
+                            @if (timer is DurationTimer durationTimer)
+                            {
+                                <MudText Typo="Typo.body2" Class="mt-2">
+                                    <strong>Start:</strong> @durationTimer.StartTime.ToString("hh:mm tt")
+                                </MudText>
+                                <MudText Typo="Typo.body2">
+                                    <strong>Duration:</strong> @durationTimer.DurationMinutes minutes
+                                </MudText>
+                            }
+                            else if (timer is TimeRangeTimer timeRangeTimer)
+                            {
+                                <MudText Typo="Typo.body2" Class="mt-2">
+                                    <strong>On:</strong> @timeRangeTimer.OnTime.ToString("hh:mm tt")
+                                </MudText>
+                                <MudText Typo="Typo.body2">
+                                    <strong>Off:</strong> @timeRangeTimer.OffTime.ToString("hh:mm tt")
+                                </MudText>
+                            }
+
+                            @{
+                                var isActive = timer.IsActiveAt(DateTime.Now);
+                                var nextEvent = isActive ? timer.GetNextDeactivation(DateTime.Now) : timer.GetNextActivation(DateTime.Now);
+                            }
+
+                            <MudChip T="string"
+                                    Size="Size.Small"
+                                    Color="@(isActive ? Color.Success : Color.Default)"
+                                    Class="mt-2">
+                                @(isActive ? "Active Now" : "Inactive")
+                            </MudChip>
+
+                            @if (nextEvent.HasValue)
+                            {
+                                <MudText Typo="Typo.caption" Class="mt-1">
+                                    Next @(isActive ? "off" : "on"): @nextEvent.Value.ToString("ddd, MMM d @ h:mm tt")
+                                </MudText>
+                            }
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Size="Size.Small"
+                                      Color="Color.Primary"
+                                      OnClick="@(() => EditTimer(timer))">
+                                Edit
+                            </MudButton>
+                            <MudButton Size="Size.Small"
+                                      Color="Color.Error"
+                                      OnClick="@(() => DeleteTimer(timer.Id))">
+                                Delete
+                            </MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    private List<TimerSchedule> _timers = new();
+    private bool _loading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTimers();
+    }
+
+    private async Task LoadTimers()
+    {
+        _loading = true;
+        try
+        {
+            _timers = await TimerService.GetAllAsync();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OpenCreateDialog(string timerType)
+    {
+        // TODO: Implement dialog for creating timers
+        // For now, we'll create a simple default timer
+        await CreateDefaultTimer(timerType);
+    }
+
+    private async Task CreateDefaultTimer(string timerType)
+    {
+        TimerSchedule newTimer = timerType switch
+        {
+            "Duration" => new DurationTimer
+            {
+                Name = "New Duration Timer",
+                Description = "Edit this timer",
+                StartTime = TimeOnly.FromDateTime(DateTime.Now),
+                DurationMinutes = 60,
+                ActiveDays = new List<DayOfWeek>()
+            },
+            "TimeRange" => new TimeRangeTimer
+            {
+                Name = "New Time Range Timer",
+                Description = "Edit this timer",
+                OnTime = TimeOnly.FromDateTime(DateTime.Now),
+                OffTime = TimeOnly.FromDateTime(DateTime.Now.AddHours(1)),
+                ActiveDays = new List<DayOfWeek>()
+            },
+            _ => throw new ArgumentException("Invalid timer type")
+        };
+
+        await TimerService.CreateAsync(newTimer);
+        await LoadTimers();
+    }
+
+    private async Task EditTimer(TimerSchedule timer)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Timer"] = timer
+        };
+
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+
+        var dialog = await DialogService.ShowAsync<TimerEditDialog>("Edit Timer", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is TimerSchedule editedTimer)
+        {
+            await TimerService.UpdateAsync(editedTimer);
+            await LoadTimers();
+        }
+    }
+
+    private async Task ToggleTimer(int id)
+    {
+        await TimerService.ToggleEnabledAsync(id);
+        await LoadTimers();
+    }
+
+    private async Task DeleteTimer(int id)
+    {
+        var timer = _timers.FirstOrDefault(t => t.Id == id);
+        if (timer == null)
+            return;
+
+        var result = await DialogService.ShowMessageBox(
+            "Delete Timer",
+            $"Are you sure you want to delete '{timer.Name}'? This action cannot be undone.",
+            yesText: "Delete",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await TimerService.DeleteAsync(id);
+            await LoadTimers();
+        }
+    }
+}
