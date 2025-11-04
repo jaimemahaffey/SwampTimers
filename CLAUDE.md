@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-BlazorMudApp is a .NET 9 Blazor Server application using MudBlazor UI components. The application features a timer scheduling system with SQLite persistence.
+SwampTimers is a .NET 9 Blazor Server application using MudBlazor UI components. The application features a timer scheduling system with configurable storage backends (SQLite or YAML).
 
 ## Development Commands
 
@@ -19,8 +19,8 @@ The application runs at `https://localhost:5001` or `http://localhost:5000`.
 
 ### Docker
 ```bash
-docker build -t blazormudapp:latest .
-docker run -p 8080:80 blazormudapp:latest
+docker build -t swamptimers:latest .
+docker run -p 8080:80 swamptimers:latest
 ```
 
 ## Architecture
@@ -50,16 +50,25 @@ The core feature is a polymorphic timer scheduling system with two timer types:
 **Service Layer:**
 - `ITimerService`: Abstract interface for timer CRUD operations
 - `SqliteTimerService`: SQLite implementation using ADO.NET (Microsoft.Data.Sqlite)
-- Database: `timers.db` in the application root
+- `YamlTimerService`: YAML file-based implementation using YamlDotNet
+- `TimerServiceFactory`: Factory pattern for creating service instances based on configuration
+- Storage backend is configured in `appsettings.json` (see Configuration section below)
 - Service is registered as **Scoped** in DI container (required for Blazor Server)
-- Database initialization happens on application startup in `Program.cs:18-23`
+- Storage initialization happens on application startup in `Program.cs`
 - Thread-safe using `SemaphoreSlim` for concurrent access
 
-**Storage Design:**
+**SQLite Storage Design:**
 - Single table `TimerSchedules` with discriminator column `TimerType`
 - Polymorphic deserialization in `MapFromReader()` method
 - `ActiveDays` stored as JSON array
 - Time values stored as ISO 8601 strings
+- Default file: `timers.db` in application root
+
+**YAML Storage Design:**
+- Human-readable YAML format for easy manual editing
+- Timers stored in a list with type discriminator field
+- Uses YamlDotNet with camelCase naming convention
+- Default file: `timers.yaml` in application root
 
 ### Component Structure
 
@@ -67,6 +76,7 @@ The core feature is a polymorphic timer scheduling system with two timer types:
 Components/
 ├── Pages/           - Routable pages
 │   ├── Timers.razor - Main timer management UI
+│   ├── Settings.razor - Application settings and storage configuration
 │   ├── MudDemo.razor - MudBlazor component showcase
 │   └── ...
 ├── Timers/          - Timer-specific components
@@ -83,16 +93,43 @@ The app uses MudBlazor's dialog system with a custom pattern:
 - `OnCancel` and `OnSubmit` EventCallbacks passed as dialog parameters
 - Dialog closes programmatically via `dialogRefWrapper.Reference?.Close()`
 
+## Configuration
+
+The application uses `appsettings.json` for configuration. Storage backend is configured in the `Storage` section:
+
+```json
+{
+  "Storage": {
+    "StorageType": "Sqlite",  // "Sqlite" or "Yaml"
+    "SqlitePath": "timers.db",
+    "YamlPath": "timers.yaml"
+  }
+}
+```
+
+**Changing Storage Backend:**
+1. Edit `appsettings.json` or `appsettings.Development.json`
+2. Set `StorageType` to either `"Sqlite"` or `"Yaml"`
+3. Optionally adjust file paths
+4. Restart the application (changes require restart)
+
+**Storage Configuration Model:**
+- `StorageOptions` class in `Models/StorageOptions.cs`
+- Registered in DI container via `IOptions<StorageOptions>`
+- Accessible from Settings page (`/settings`)
+
 ## Important Implementation Notes
 
 1. **Render Mode**: All interactive components must have `@rendermode InteractiveServer` directive
 2. **Service Lifetime**: Timer service is Scoped (not Singleton) due to Blazor Server requirements
-3. **Database Path**: SQLite database is relative to working directory (`timers.db`)
+3. **Storage Paths**: Storage files are relative to working directory
 4. **Time Handling**: Uses `TimeOnly` for time-of-day values (not `DateTime` or `TimeSpan`)
 5. **Midnight Spanning**: Both timer types include logic for time ranges that cross midnight
+6. **Storage Switching**: Changing storage type requires application restart and does not migrate data
 
 ## Dependencies
 
 - **MudBlazor 8.13.0**: UI component library
 - **Microsoft.Data.Sqlite 9.0.0**: SQLite ADO.NET provider
+- **YamlDotNet 16.3.0**: YAML serialization library
 - **.NET 9.0**: Target framework

@@ -1,4 +1,4 @@
-namespace BlazorMudApp.Models;
+namespace SwampTimers.Models;
 
 /// <summary>
 /// Timer that starts at a specific time and runs for a set duration

@@ -3,16 +3,16 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # Copy csproj and restore dependencies
-COPY ["BlazorMudApp.csproj", "./"]
-RUN dotnet restore "BlazorMudApp.csproj"
+COPY ["SwampTimers.csproj", "./"]
+RUN dotnet restore "SwampTimers.csproj"
 
 # Copy everything else and build
 COPY . .
-RUN dotnet build "BlazorMudApp.csproj" -c Release -o /app/build
+RUN dotnet build "SwampTimers.csproj" -c Release -o /app/build
 
 # Publish stage
 FROM build AS publish
-RUN dotnet publish "BlazorMudApp.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "SwampTimers.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage - using nginx to serve the static files
 FROM nginx:alpine AS final

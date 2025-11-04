@@ -1,5 +1,6 @@
-using BlazorMudApp.Components;
-using BlazorMudApp.Services;
+using SwampTimers.Components;
+using SwampTimers.Services;
+using SwampTimers.Models;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,8 +11,17 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddMudServices();
 
-// Timer Service Registration - now using Scoped for Blazor Server
-builder.Services.AddScoped<ITimerService>(sp => new SqliteTimerService("timers.db"));
+// Configure storage options from appsettings.json
+builder.Services.Configure<StorageOptions>(
+    builder.Configuration.GetSection("Storage"));
+
+// Timer Service Registration - uses factory pattern with configuration
+builder.Services.AddScoped<ITimerService>(sp =>
+{
+    var config = builder.Configuration.GetSection("Storage").Get<StorageOptions>()
+        ?? new StorageOptions();
+    return TimerServiceFactory.Create(config);
+});
 
 var app = builder.Build();
 

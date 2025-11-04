@@ -1,8 +1,8 @@
-using BlazorMudApp.Models;
+using SwampTimers.Models;
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
 
-namespace BlazorMudApp.Services;
+namespace SwampTimers.Services;
 
 /// <summary>
 /// SQLite implementation of timer storage

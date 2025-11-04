@@ -1,4 +1,4 @@
-namespace BlazorMudApp.Models;
+namespace SwampTimers.Models;
 
 /// <summary>
 /// Base class for all timer-based schedules

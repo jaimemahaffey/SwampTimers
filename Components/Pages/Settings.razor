@@ -1,0 +1,177 @@
+@page "/settings"
+@using SwampTimers.Models
+@using Microsoft.Extensions.Options
+@inject IOptions<StorageOptions> StorageOptions
+@inject IConfiguration Configuration
+@rendermode InteractiveServer
+
+<PageTitle>Settings</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Application Settings</MudText>
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudText Typo="Typo.h6" GutterBottom="true">Storage Configuration</MudText>
+
+        <MudGrid>
+            <MudItem xs="12">
+                <MudAlert Severity="Severity.Info" Class="mb-4">
+                    Storage settings are configured in appsettings.json.
+                    Changes to storage type require an application restart.
+                </MudAlert>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Current Storage Type</MudText>
+                <MudChip T="string" Color="@GetStorageTypeColor()" Size="Size.Large">
+                    @_storageType.ToString()
+                </MudChip>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Storage File Path</MudText>
+                <MudTextField @bind-Value="_storagePath"
+                            Label="File Path"
+                            Variant="Variant.Outlined"
+                            ReadOnly="true"
+                            Adornment="Adornment.Start"
+                            AdornmentIcon="@Icons.Material.Filled.Folder" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudDivider Class="my-4" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" GutterBottom="true">Available Storage Options</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudCard>
+                    <MudCardContent>
+                        <MudStack Spacing="2">
+                            <MudText Typo="Typo.h6">
+                                <MudIcon Icon="@Icons.Material.Filled.Storage" Class="mr-2" />
+                                SQLite Database
+                            </MudText>
+                            <MudText Typo="Typo.body2">
+                                Relational database storage with SQL querying capabilities.
+                            </MudText>
+                            <MudText Typo="Typo.caption">
+                                <strong>File:</strong> @_sqlitePath
+                            </MudText>
+                            @if (_storageType == StorageType.Sqlite)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small">Active</MudChip>
+                            }
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudCard>
+                    <MudCardContent>
+                        <MudStack Spacing="2">
+                            <MudText Typo="Typo.h6">
+                                <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-2" />
+                                YAML File
+                            </MudText>
+                            <MudText Typo="Typo.body2">
+                                Human-readable text file format, easy to edit manually.
+                            </MudText>
+                            <MudText Typo="Typo.caption">
+                                <strong>File:</strong> @_yamlPath
+                            </MudText>
+                            @if (_storageType == StorageType.Yaml)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small">Active</MudChip>
+                            }
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudDivider Class="my-4" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudExpansionPanels>
+                    <MudExpansionPanel Text="How to Change Storage Type">
+                        <MudText Typo="Typo.body2" Class="mb-2">
+                            To change the storage backend:
+                        </MudText>
+                        <MudList T="string">
+                            <MudListItem T="string">
+                                <MudText Typo="Typo.body2">
+                                    1. Edit <code>appsettings.json</code> in the application root
+                                </MudText>
+                            </MudListItem>
+                            <MudListItem T="string">
+                                <MudText Typo="Typo.body2">
+                                    2. Change <code>"StorageType"</code> to either <code>"Sqlite"</code> or <code>"Yaml"</code>
+                                </MudText>
+                            </MudListItem>
+                            <MudListItem T="string">
+                                <MudText Typo="Typo.body2">
+                                    3. Optionally adjust file paths for <code>"SqlitePath"</code> or <code>"YamlPath"</code>
+                                </MudText>
+                            </MudListItem>
+                            <MudListItem T="string">
+                                <MudText Typo="Typo.body2">
+                                    4. Restart the application for changes to take effect
+                                </MudText>
+                            </MudListItem>
+                        </MudList>
+
+                        <MudText Typo="Typo.body2" Class="mt-4 mb-2">
+                            Example configuration:
+                        </MudText>
+                        <MudPaper Class="pa-2" Style="background-color: #f5f5f5;">
+                            <pre style="margin: 0;"><code>{
+  "Storage": {
+    "StorageType": "Yaml",
+    "SqlitePath": "timers.db",
+    "YamlPath": "timers.yaml"
+  }
+}</code></pre>
+                        </MudPaper>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private StorageType _storageType = StorageType.Sqlite;
+    private string _storagePath = string.Empty;
+    private string _sqlitePath = "timers.db";
+    private string _yamlPath = "timers.yaml";
+
+    protected override void OnInitialized()
+    {
+        var options = StorageOptions.Value;
+        _storageType = options.StorageType;
+        _sqlitePath = options.SqlitePath;
+        _yamlPath = options.YamlPath;
+
+        _storagePath = _storageType switch
+        {
+            StorageType.Sqlite => _sqlitePath,
+            StorageType.Yaml => _yamlPath,
+            _ => "Unknown"
+        };
+    }
+
+    private Color GetStorageTypeColor()
+    {
+        return _storageType switch
+        {
+            StorageType.Sqlite => Color.Primary,
+            StorageType.Yaml => Color.Secondary,
+            _ => Color.Default
+        };
+    }
+}

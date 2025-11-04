@@ -1,6 +1,6 @@
-using BlazorMudApp.Models;
+using SwampTimers.Models;
 
-namespace BlazorMudApp.Services;
+namespace SwampTimers.Services;
 
 /// <summary>
 /// Abstract interface for timer schedule storage and retrieval
