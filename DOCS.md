@@ -120,6 +120,14 @@ Timer data is stored in `/addon_configs/xxxxx_swamptimers/`:
 - Event firing for automation integration
 - Entity picker UI
 
+## Icons
+
+The add-on uses default icons. To customize:
+- Create `icon.png` (256x256 px) for the add-on store listing
+- Create `logo.png` (128x128 px) for the add-on details page
+- Use timer/clock themed graphics
+- Place in the repository root
+
 ## Support
 
 - GitHub: https://github.com/yourusername/swamptimers
