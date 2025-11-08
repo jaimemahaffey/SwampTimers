@@ -24,8 +24,8 @@ Quick summary for private deployment:
 #### Step 1: Prepare Your Repository
 
 1. **Repository URLs are already configured**:
-   - `config.yaml` image: `ghcr.io/mahaffey/swamptimers-{arch}`
-   - `repository.yaml` URL: `https://github.com/mahaffey/swamptimers`
+   - `config.yaml` image: `ghcr.io/jaimemahaffey/swamptimers-{arch}`
+   - `repository.yaml` URL: `https://github.com/jaimemahaffey/swamptimers`
    - Maintainer: Jaime Mahaffey
 
 3. **Add Icon and Logo** (optional but recommended):
@@ -95,7 +95,7 @@ jobs:
 1. In Home Assistant, navigate to **Settings** → **Add-ons** → **Add-on Store**
 2. Click the **⋮** (three dots) menu in the top right
 3. Select **Repositories**
-4. Add the repository URL: `https://github.com/mahaffey/swamptimers`
+4. Add the repository URL: `https://github.com/jaimemahaffey/swamptimers`
 5. Click **Add**
 6. Refresh the page
 7. Find "SwampTimers" in the add-on list
@@ -176,11 +176,11 @@ docker build \
   --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest \
   --build-arg BUILD_ARCH=amd64 \
   --build-arg BUILD_VERSION=1.0.0 \
-  -t ghcr.io/mahaffey/swamptimers-amd64:latest \
+  -t ghcr.io/jaimemahaffey/swamptimers-amd64:latest \
   .
 
 # Push to GitHub Container Registry
-docker push ghcr.io/mahaffey/swamptimers-amd64:latest
+docker push ghcr.io/jaimemahaffey/swamptimers-amd64:latest
 ```
 
 For multi-arch builds, you'll need to build for each architecture separately or use `docker buildx`.
@@ -273,5 +273,5 @@ For Phase 2 (HA Entity Control), you'll be able to:
 ## Support
 
 - **Documentation**: See [DOCS.md](DOCS.md)
-- **Issues**: https://github.com/mahaffey/swamptimers/issues
-- **Discussions**: https://github.com/mahaffey/swamptimers/discussions
+- **Issues**: https://github.com/jaimemahaffey/swamptimers/issues
+- **Discussions**: https://github.com/jaimemahaffey/swamptimers/discussions
