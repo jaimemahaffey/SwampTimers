@@ -130,6 +130,6 @@ The add-on uses default icons. To customize:
 
 ## Support
 
-- GitHub: https://github.com/yourusername/swamptimers
-- Issues: https://github.com/yourusername/swamptimers/issues
-- Discussions: https://github.com/yourusername/swamptimers/discussions
+- GitHub: https://github.com/mahaffey/swamptimers
+- Issues: https://github.com/mahaffey/swamptimers/issues
+- Discussions: https://github.com/mahaffey/swamptimers/discussions
