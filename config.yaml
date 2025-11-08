@@ -6,27 +6,17 @@ url: https://github.com/mahaffey/swamptimers
 arch:
   - aarch64
   - amd64
-  - armhf
-  - armv7
-  - i386
 
 init: false
-startup: application
-boot: auto
 
 # Ingress configuration for web UI
 ingress: true
 ingress_port: 8080
-ingress_stream: false
 panel_icon: mdi:timer-cog
 panel_title: SwampTimers
 
-# Web UI access (for non-ingress access if needed)
-webui: "[PROTO:ssl]://[HOST]:[PORT:8080]"
-
 # Host API access
 hassio_api: true
-hassio_role: default
 homeassistant_api: true
 auth_api: true
 
