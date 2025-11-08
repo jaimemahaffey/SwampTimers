@@ -2,7 +2,7 @@ name: SwampTimers
 version: "1.0.0"
 slug: swamptimers
 description: Advanced timer scheduling for Home Assistant entities
-url: https://github.com/mahaffey/swamptimers
+url: https://github.com/jaimemahaffey/swamptimers
 arch:
   - aarch64
   - amd64
@@ -45,4 +45,4 @@ schema:
 # Image configuration
 # IMPORTANT: After first GitHub Actions build, make container images private
 # See PRIVATE_REPO_SETUP.md for instructions
-image: ghcr.io/mahaffey/swamptimers-{arch}
+image: ghcr.io/jaimemahaffey/swamptimers-{arch}
