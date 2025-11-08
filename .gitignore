@@ -116,8 +116,9 @@ wwwroot/lib/
 **/*.min.css
 **/*.min.js
 
-# User secrets
-**/appsettings.Development.json
+# Timer data files (user data, not config)
+timers.yaml
+timers.db
 
 # Temp files
 *.tmp

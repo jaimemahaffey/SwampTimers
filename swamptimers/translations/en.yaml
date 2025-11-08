@@ -1,0 +1,13 @@
+configuration:
+  storage_type:
+    name: Storage Type
+    description: Choose between YAML (human-readable) or SQLite (database) storage
+  log_level:
+    name: Log Level
+    description: Set the verbosity of application logs
+  update_interval:
+    name: Update Interval
+    description: How often to check timers (in seconds)
+  timezone:
+    name: Timezone
+    description: Timezone for timer calculations (auto uses Home Assistant timezone)

@@ -36,10 +36,23 @@ using (var scope = app.Services.CreateScope())
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    app.UseHsts();
+    // Don't use HSTS in add-on (Ingress handles HTTPS)
+    // app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// For Home Assistant Ingress support - handle base path
+var ingressPath = Environment.GetEnvironmentVariable("INGRESS_PATH");
+if (!string.IsNullOrEmpty(ingressPath))
+{
+    app.UsePathBase(new PathString(ingressPath));
+}
+
+// Don't use HTTPS redirection in add-on (Ingress handles it)
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseStaticFiles();
 app.UseAntiforgery();
 
