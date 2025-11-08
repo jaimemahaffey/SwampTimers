@@ -53,4 +53,6 @@ schema:
   timezone: str?
 
 # Image configuration
+# IMPORTANT: After first GitHub Actions build, make container images private
+# See PRIVATE_REPO_SETUP.md for instructions
 image: ghcr.io/mahaffey/swamptimers-{arch}

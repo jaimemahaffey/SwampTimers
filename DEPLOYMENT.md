@@ -1,10 +1,22 @@
 # SwampTimers Deployment Guide
 
+## Important: Private Repository Setup
+
+**This repository is configured as PRIVATE.** For detailed instructions on deploying a private Home Assistant add-on, see [PRIVATE_REPO_SETUP.md](PRIVATE_REPO_SETUP.md).
+
+Quick summary for private deployment:
+1. Push code to GitHub (already private)
+2. Make container images private after first build
+3. Create GitHub Personal Access Token (PAT)
+4. Configure Home Assistant with authentication
+5. Add repository and install add-on
+
 ## Deploying to Home Assistant
 
 ### Prerequisites
 - Home Assistant instance (Core, Supervised, or OS)
 - GitHub account (for repository hosting)
+- GitHub Personal Access Token with `read:packages` and `repo` permissions (for private repo)
 - (Optional) Docker Desktop for local testing
 
 ### Option 1: Deploy via GitHub (Recommended)
