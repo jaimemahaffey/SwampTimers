@@ -30,9 +30,18 @@ echo "Storage type: ${STORAGE_TYPE}"
 echo "Log level: ${LOG_LEVEL}"
 echo "Update interval: ${UPDATE_INTERVAL}s"
 
+# Convert log level to .NET format (capitalize first letter)
+case "$LOG_LEVEL" in
+    debug) DOTNET_LOG_LEVEL="Debug" ;;
+    info) DOTNET_LOG_LEVEL="Information" ;;
+    warning) DOTNET_LOG_LEVEL="Warning" ;;
+    error) DOTNET_LOG_LEVEL="Error" ;;
+    *) DOTNET_LOG_LEVEL="Information" ;;
+esac
+
 # Set environment variables for .NET app
 export ASPNETCORE_ENVIRONMENT=Production
-export Logging__LogLevel__Default="${LOG_LEVEL}"
+export Logging__LogLevel__Default="${DOTNET_LOG_LEVEL}"
 export Storage__StorageType="${STORAGE_TYPE}"
 export Storage__YamlPath="/data/timers.yaml"
 export Storage__SqlitePath="/data/timers.db"

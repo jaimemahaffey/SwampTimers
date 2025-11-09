@@ -45,7 +45,7 @@ WORKDIR /app
 COPY --from=build /app/publish .
 
 # Copy add-on specific files
-COPY run.sh /
+COPY swamptimers/run.sh /
 RUN chmod a+x /run.sh
 
 # Environment variables for Blazor Server

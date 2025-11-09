@@ -5,6 +5,12 @@ using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure URLs - listen on all interfaces for Docker/Add-on use
+if (!builder.Environment.IsDevelopment())
+{
+    builder.WebHost.UseUrls("http://0.0.0.0:8080");
+}
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
