@@ -24,11 +24,6 @@ auth_api: true
 services:
   - mqtt:want  # Optional MQTT support for advanced integrations
 
-# Data persistence
-map:
-  - type: addon_config
-    path: /data
-
 # Options schema
 options:
   storage_type: yaml
