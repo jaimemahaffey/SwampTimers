@@ -28,7 +28,8 @@ RUN apk add --no-cache \
     libssl3 \
     libstdc++ \
     zlib \
-    bash
+    bash \
+    jq
 
 # Install .NET runtime from Microsoft
 ENV DOTNET_ROOT=/usr/share/dotnet

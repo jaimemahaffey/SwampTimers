@@ -1,23 +1,34 @@
-#!/usr/bin/with-contenv bashio
+#!/usr/bin/env bash
+set -e
 
-# Get add-on configuration
+# Get add-on configuration from options.json
 CONFIG_PATH="/data/options.json"
-STORAGE_TYPE=$(bashio::config 'storage_type')
-LOG_LEVEL=$(bashio::config 'log_level')
-UPDATE_INTERVAL=$(bashio::config 'update_interval')
-TIMEZONE=$(bashio::config 'timezone')
 
-# Set timezone (use HA timezone if auto)
-if [ "$TIMEZONE" == "auto" ]; then
-    TIMEZONE=$(bashio::timezone)
+# Parse configuration using jq (available in Home Assistant base images)
+if [ -f "$CONFIG_PATH" ]; then
+    STORAGE_TYPE=$(jq -r '.storage_type // "yaml"' "$CONFIG_PATH")
+    LOG_LEVEL=$(jq -r '.log_level // "info"' "$CONFIG_PATH")
+    UPDATE_INTERVAL=$(jq -r '.update_interval // 30' "$CONFIG_PATH")
+    TIMEZONE=$(jq -r '.timezone // "auto"' "$CONFIG_PATH")
+else
+    # Defaults if config file doesn't exist
+    STORAGE_TYPE="yaml"
+    LOG_LEVEL="info"
+    UPDATE_INTERVAL=30
+    TIMEZONE="auto"
 fi
-bashio::log.info "Setting timezone to: ${TIMEZONE}"
+
+# Set timezone (default to UTC if auto)
+if [ "$TIMEZONE" == "auto" ]; then
+    TIMEZONE="UTC"
+fi
+echo "Setting timezone to: ${TIMEZONE}"
 export TZ="${TIMEZONE}"
 
 # Prepare configuration
-bashio::log.info "Storage type: ${STORAGE_TYPE}"
-bashio::log.info "Log level: ${LOG_LEVEL}"
-bashio::log.info "Update interval: ${UPDATE_INTERVAL}s"
+echo "Storage type: ${STORAGE_TYPE}"
+echo "Log level: ${LOG_LEVEL}"
+echo "Update interval: ${UPDATE_INTERVAL}s"
 
 # Set environment variables for .NET app
 export ASPNETCORE_ENVIRONMENT=Production
@@ -29,17 +40,16 @@ export HomeAssistant__SupervisorToken="${SUPERVISOR_TOKEN}"
 export HomeAssistant__ApiUrl="http://supervisor/core/api"
 export HomeAssistant__UpdateInterval="${UPDATE_INTERVAL}"
 
-# Set Ingress path for URL rewriting
-if bashio::var.has_value "$(bashio::addon.ingress_entry)"; then
-    export INGRESS_PATH="$(bashio::addon.ingress_entry)"
-    bashio::log.info "Ingress path: ${INGRESS_PATH}"
+# Set Ingress path for URL rewriting (if provided by Supervisor)
+if [ -n "$INGRESS_PATH" ]; then
+    echo "Ingress path: ${INGRESS_PATH}"
 fi
 
 # Ensure data directory exists
 mkdir -p /data
 
 # Log startup
-bashio::log.info "Starting SwampTimers..."
+echo "Starting SwampTimers..."
 
 # Start the application
 cd /app
