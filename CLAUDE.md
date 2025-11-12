@@ -69,6 +69,13 @@ The core feature is a polymorphic timer scheduling system with two timer types:
 - Timers stored in a list with type discriminator field
 - Uses YamlDotNet with camelCase naming convention
 - Default file: `timers.yaml` in application root
+- **Custom TimeOnly Converter**: `TimeOnlyConverter` class handles `TimeOnly` serialization
+	- Writes `TimeOnly` values as ISO time strings (e.g., `"14:30:00"`)
+	- Reads both formats for backward compatibility:
+		- New format: `startTime: "14:30:00"` (string)
+		- Old format: `startTime: { hour: 14, minute: 30, second: 0 }` (object)
+	- Automatic migration: Old format timers convert to new format on save
+	- Located in `Services/YamlTimerService.cs`
 
 ### Component Structure
 
@@ -126,6 +133,8 @@ The application uses `appsettings.json` for configuration. Storage backend is co
 4. **Time Handling**: Uses `TimeOnly` for time-of-day values (not `DateTime` or `TimeSpan`)
 5. **Midnight Spanning**: Both timer types include logic for time ranges that cross midnight
 6. **Storage Switching**: Changing storage type requires application restart and does not migrate data
+7. **YAML TimeOnly Format**: YAML service uses custom converter for backward compatibility with existing data
+8. **Code Style**: Use tabs for indentation, not spaces
 
 ## Dependencies
 
@@ -133,6 +142,22 @@ The application uses `appsettings.json` for configuration. Storage backend is co
 - **Microsoft.Data.Sqlite 9.0.0**: SQLite ADO.NET provider
 - **YamlDotNet 16.3.0**: YAML serialization library
 - **.NET 9.0**: Target framework
+
+## Troubleshooting
+
+### YAML TimeOnly Serialization Error
+
+**Issue**: "Expected 'Scalar', got 'MappingStart'" error when loading existing YAML files.
+
+**Cause**: YamlDotNet's default camelCase naming convention attempts to serialize `TimeOnly` struct properties (`Hour`, `Minute`, `Second`) as nested objects, which causes deserialization to fail.
+
+**Solution**: Custom `TimeOnlyConverter` class (in `Services/YamlTimerService.cs`) handles both formats:
+- Old format (object): `startTime: { hour: 14, minute: 30, second: 0 }`
+- New format (string): `startTime: "14:30:00"`
+
+The converter automatically reads existing data in either format and writes new data in the cleaner string format. No manual data migration required.
+
+**Prevention**: The custom converter is registered with both the YAML serializer and deserializer during `YamlTimerService` initialization, ensuring all `TimeOnly` values are handled correctly.
 
 ## Home Assistant Add-on
 
@@ -209,4 +234,3 @@ For complete deployment instructions, see `DEPLOYMENT.md` and `PRIVATE_REPO_SETU
 - Changing storage type in add-on configuration requires restart
 - Repository is configured as private; GitHub Personal Access Token required for installation
 - GitHub Actions automatically builds multi-architecture images on push
-- Add to memory, indentation should be tabs not spaces
