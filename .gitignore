@@ -120,6 +120,9 @@ wwwroot/lib/
 timers.yaml
 timers.db
 
+# Local testing data
+test-data/
+
 # Temp files
 *.tmp
 *.temp

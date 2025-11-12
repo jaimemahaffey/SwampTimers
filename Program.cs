@@ -2,14 +2,27 @@ using SwampTimers.Components;
 using SwampTimers.Services;
 using SwampTimers.Models;
 using MudBlazor.Services;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure URLs - listen on all interfaces for Docker/Add-on use
 if (!builder.Environment.IsDevelopment())
 {
-    builder.WebHost.UseUrls("http://0.0.0.0:8080");
+	builder.WebHost.UseUrls("http://0.0.0.0:8080");
 }
+
+// Configure Data Protection for containerized environments
+// Persist keys to /data directory to survive container restarts
+var dataProtectionPath = builder.Environment.IsDevelopment()
+	? Path.Combine(Directory.GetCurrentDirectory(), "data", "keys")
+	: "/data/keys";
+
+Directory.CreateDirectory(dataProtectionPath);
+
+builder.Services.AddDataProtection()
+	.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
+	.SetApplicationName("SwampTimers");
 
 // Add services to the container.
 builder.Services.AddRazorComponents()

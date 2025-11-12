@@ -1,16 +1,33 @@
-﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@inherits LayoutComponentBase
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+<MudThemeProvider @rendermode="InteractiveServer" Theme="_theme" />
+<MudLayout>
+	<TopNavBar />
+	<MudMainContent>
+		<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+			@Body
+		</MudContainer>
+	</MudMainContent>
+</MudLayout>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+@code {
+	private MudTheme _theme = new MudTheme()
+	{
+		PaletteLight = new PaletteLight()
+		{
+			Primary = "#594ae2",
+			AppbarBackground = "#27272f",
+			AppbarText = "#ffffff",
+			DrawerBackground = "#27272f",
+			DrawerText = "#ffffff"
+		},
+		PaletteDark = new PaletteDark()
+		{
+			Primary = "#7e6fff",
+			AppbarBackground = "#27272f",
+			AppbarText = "#ffffff",
+			DrawerBackground = "#27272f",
+			DrawerText = "#ffffff"
+		}
+	};
+}

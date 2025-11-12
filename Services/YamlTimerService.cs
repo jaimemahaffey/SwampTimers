@@ -1,8 +1,64 @@
 using SwampTimers.Models;
+using YamlDotNet.Core;
+using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
 namespace SwampTimers.Services;
+
+/// <summary>
+/// Custom YAML type converter for TimeOnly to handle serialization/deserialization
+/// </summary>
+public class TimeOnlyConverter : IYamlTypeConverter
+{
+	public bool Accepts(Type type) => type == typeof(TimeOnly) || type == typeof(TimeOnly?);
+
+	public object? ReadYaml(IParser parser, Type type, ObjectDeserializer rootDeserializer)
+	{
+		// Check if we're dealing with a scalar (new format) or mapping (old format)
+		if (parser.Current is Scalar scalar)
+		{
+			parser.MoveNext();
+			if (string.IsNullOrEmpty(scalar.Value) && type == typeof(TimeOnly?))
+			{
+				return null;
+			}
+			return TimeOnly.Parse(scalar.Value);
+		}
+		else if (parser.Current is MappingStart)
+		{
+			// Handle old format where TimeOnly was serialized as an object with hour, minute, second
+			var mapping = rootDeserializer(typeof(Dictionary<string, int>)) as Dictionary<string, int>;
+			if (mapping == null || mapping.Count == 0)
+			{
+				return type == typeof(TimeOnly?) ? null : TimeOnly.MinValue;
+			}
+
+			int hour = mapping.GetValueOrDefault("hour", 0);
+			int minute = mapping.GetValueOrDefault("minute", 0);
+			int second = mapping.GetValueOrDefault("second", 0);
+
+			return new TimeOnly(hour, minute, second);
+		}
+		else
+		{
+			throw new YamlException($"Expected scalar or mapping for TimeOnly, got {parser.Current?.GetType().Name}");
+		}
+	}
+
+	public void WriteYaml(IEmitter emitter, object? value, Type type, ObjectSerializer serializer)
+	{
+		if (value == null)
+		{
+			emitter.Emit(new Scalar(string.Empty));
+		}
+		else
+		{
+			var timeOnly = (TimeOnly)value;
+			emitter.Emit(new Scalar(timeOnly.ToString("HH:mm:ss")));
+		}
+	}
+}
 
 /// <summary>
 /// YAML file-based implementation of timer storage
@@ -20,13 +76,15 @@ public class YamlTimerService : ITimerService, IDisposable
     {
         _filePath = filePath;
 
-        // Configure YAML serializer with camelCase naming
+        // Configure YAML serializer with camelCase naming and TimeOnly converter
         _serializer = new SerializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .WithTypeConverter(new TimeOnlyConverter())
             .Build();
 
         _deserializer = new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .WithTypeConverter(new TimeOnlyConverter())
             .Build();
     }
 

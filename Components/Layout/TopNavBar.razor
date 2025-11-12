@@ -1,0 +1,26 @@
+@rendermode InteractiveServer
+
+<MudAppBar Elevation="1" Dense="true">
+	<MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" Class="d-lg-none" />
+	<MudText Typo="Typo.h6" Class="ml-3">SwampTimers</MudText>
+	<MudSpacer />
+	<div class="d-none d-lg-flex">
+		<MudButton Href="/" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Schedule">Timer Schedules</MudButton>
+		<MudButton Href="/settings" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Settings">Settings</MudButton>
+	</div>
+</MudAppBar>
+<MudDrawer @bind-Open="@_drawerOpen" Elevation="2" Variant="@DrawerVariant.Temporary" Class="d-lg-none">
+	<MudDrawerHeader>
+		<MudText Typo="Typo.h6">SwampTimers</MudText>
+	</MudDrawerHeader>
+	<NavMenu />
+</MudDrawer>
+
+@code {
+	private bool _drawerOpen = false;
+
+	private void ToggleDrawer()
+	{
+		_drawerOpen = !_drawerOpen;
+	}
+}

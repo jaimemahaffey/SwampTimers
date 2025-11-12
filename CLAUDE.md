@@ -133,3 +133,80 @@ The application uses `appsettings.json` for configuration. Storage backend is co
 - **Microsoft.Data.Sqlite 9.0.0**: SQLite ADO.NET provider
 - **YamlDotNet 16.3.0**: YAML serialization library
 - **.NET 9.0**: Target framework
+
+## Home Assistant Add-on
+
+**Branch**: `feature/home-assistant-integration`
+
+The project is being developed as a Home Assistant add-on to enable native integration with Home Assistant for automated entity control based on timer schedules.
+
+### Add-on Architecture
+
+**Repository Structure:**
+- Add-on files are in the `swamptimers/` subdirectory
+- `config.yaml`: Home Assistant add-on configuration
+- `build.yaml`: Multi-architecture build configuration
+- `Dockerfile`: Container definition for the add-on
+- `run.sh`: Entry point script that handles initialization
+
+**Integration Features:**
+- **Ingress Support**: Web UI accessible through Home Assistant interface
+- **API Access**: Configured with `hassio_api`, `homeassistant_api`, and `auth_api` for future entity control
+- **Data Persistence**: Uses `/data` volume mount for timer storage
+- **Multi-architecture**: Supports amd64 and aarch64 architectures
+
+**Configuration Options** (in `config.yaml`):
+- `storage_type`: Choose between "yaml" or "sqlite" (default: yaml)
+- `log_level`: Set logging level - debug, info, warning, error (default: info)
+- `update_interval`: Seconds between timer checks, 10-300 range (default: 30)
+- `timezone`: Timezone handling, "auto" or specific timezone (default: auto)
+
+**Container Images:**
+- Published to GitHub Container Registry (GHCR)
+- Image naming: `ghcr.io/jaimemahaffey/swamptimers-{arch}`
+- Built via GitHub Actions on push to main branch
+- **Note**: Repository and container images are private; see `PRIVATE_REPO_SETUP.md` for deployment instructions
+
+### Development Phases
+
+**Phase 1: Core Add-on (Complete)**
+- Add-on packaging and configuration
+- Blazor Server UI with Ingress support
+- YAML/SQLite storage backends
+- Timer scheduling system with UI
+
+**Phase 2: Home Assistant Integration (Planned)**
+- Home Assistant API client implementation
+- Entity control (switches, lights, etc.)
+- Custom service calls
+- Entity picker UI component
+- Background execution service for timer monitoring
+- Home Assistant event firing on timer state changes
+
+**Phase 3: Advanced Features (Future)**
+- MQTT discovery support
+- Timer templates
+- Conditional actions
+- Scene support
+- Multi-instance support
+
+### Local Testing
+
+For testing the add-on locally:
+
+```bash
+# Build and run without full Home Assistant
+docker build -t swamptimers:dev .
+docker run -p 8080:8080 -v $(pwd)/data:/data swamptimers:dev
+```
+
+For complete deployment instructions, see `DEPLOYMENT.md` and `PRIVATE_REPO_SETUP.md`.
+
+### Important Notes
+
+- The add-on uses Blazor Server with Ingress, accessed via Home Assistant's sidebar panel
+- Storage files persist in `/data` directory (mapped to add-on config directory)
+- Changing storage type in add-on configuration requires restart
+- Repository is configured as private; GitHub Personal Access Token required for installation
+- GitHub Actions automatically builds multi-architecture images on push
+- Add to memory, indentation should be tabs not spaces
