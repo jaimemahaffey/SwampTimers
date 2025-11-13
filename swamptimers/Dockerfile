@@ -41,10 +41,17 @@ RUN apk add --no-cache \
     jq
 
 # Install .NET runtime from Microsoft
+# Map Home Assistant arch to .NET architecture
 ENV DOTNET_ROOT=/usr/share/dotnet
-RUN wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh \
+RUN DOTNET_ARCH=$(case "${BUILD_ARCH}" in \
+      "aarch64") echo "arm64" ;; \
+      "amd64") echo "x64" ;; \
+      *) echo "x64" ;; \
+    esac) && \
+    echo "Installing .NET runtime for architecture: ${BUILD_ARCH} (dotnet arch: ${DOTNET_ARCH})" && \
+    wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh \
     && chmod +x dotnet-install.sh \
-    && ./dotnet-install.sh --channel 9.0 --runtime aspnetcore --install-dir ${DOTNET_ROOT} --no-path \
+    && ./dotnet-install.sh --channel 9.0 --runtime aspnetcore --install-dir ${DOTNET_ROOT} --architecture ${DOTNET_ARCH} --no-path \
     && rm dotnet-install.sh
 
 ENV PATH="${PATH}:${DOTNET_ROOT}"
