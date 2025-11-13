@@ -59,6 +59,17 @@ mkdir -p /data
 
 # Log startup
 echo "Starting SwampTimers..."
+echo ""
+echo "=== System Information ==="
+echo "Architecture: $(uname -m)"
+echo "Kernel: $(uname -r)"
+echo ".NET Runtime: $(dotnet --version 2>&1 || echo 'Not found')"
+echo ".NET Location: $(which dotnet)"
+if [ -f /usr/share/dotnet/dotnet ]; then
+	echo ".NET Binary Info: $(file /usr/share/dotnet/dotnet)"
+fi
+echo "=========================="
+echo ""
 
 # Start the application
 cd /app
