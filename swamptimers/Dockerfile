@@ -4,9 +4,11 @@ ARG BUILD_ARCH
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# Copy project files
+# Copy project files and restore (with caching)
 COPY ["SwampTimers.csproj", "./"]
-RUN dotnet restore "SwampTimers.csproj"
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    echo "Restoring NuGet packages..." && \
+    dotnet restore "SwampTimers.csproj" --verbosity minimal
 
 # Copy source and build
 # Map Home Assistant arch to .NET Runtime Identifier (RID)

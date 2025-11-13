@@ -2,6 +2,19 @@
 
 All notable changes to the SwampTimers Home Assistant Add-on will be documented in this file.
 
+## [1.0.3] - 2025-11-12
+
+### Fixed
+- **Build Performance**: Optimized GitHub Actions build process
+	- Removed amd64 from build matrix (aarch64 only)
+	- Added NuGet package caching to speed up restore
+	- Added 60-minute timeout to prevent infinite hangs
+	- Reduced verbosity in dotnet restore for cleaner logs
+
+### Changed
+- GitHub Actions workflow now only builds for aarch64 architecture
+- Dockerfile uses BuildKit cache mounts for faster NuGet package restore
+
 ## [1.0.2] - 2025-11-12
 
 ### Fixed
