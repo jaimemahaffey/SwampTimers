@@ -27,6 +27,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup build context
+        run: |
+          # Copy necessary files into swamptimers/ for the build context
+          # Also create swamptimers/swamptimers/ for run.sh to maintain path compatibility
+          cp *.csproj swamptimers/
+          cp -r Components swamptimers/
+          cp -r Models swamptimers/
+          cp -r Services swamptimers/
+          cp -r Properties swamptimers/ || true
+          cp -r wwwroot swamptimers/
+          cp Program.cs swamptimers/
+          cp appsettings*.json swamptimers/ || true
+          mkdir -p swamptimers/swamptimers
+          cp swamptimers/run.sh swamptimers/swamptimers/run.sh
+          ls -la swamptimers/
+          ls -la swamptimers/swamptimers/
+
       - name: Get version from config
         id: version
         run: |
