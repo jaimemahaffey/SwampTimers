@@ -39,11 +39,15 @@ Write-Host ""
 # Build the Docker image
 $BuildStartTime = Get-Date
 
+# Detect architecture for local builds
+$Architecture = if ([System.Environment]::Is64BitOperatingSystem) { "amd64" } else { "amd64" }
 Write-Host "Build Context: ${BuildContext}"
+Write-Host "Architecture: ${Architecture}"
 
 docker build `
     -t "${ImageName}:${ImageTag}" `
     -f "$DockerfilePath" `
+    --build-arg BUILD_ARCH=$Architecture `
     "$BuildContext"
 
 if ($LASTEXITCODE -eq 0) {

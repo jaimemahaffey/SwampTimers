@@ -1,5 +1,6 @@
 # Build stage
 ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
+ARG BUILD_ARCH
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
@@ -8,13 +9,21 @@ COPY ["SwampTimers.csproj", "./"]
 RUN dotnet restore "SwampTimers.csproj"
 
 # Copy source and build
+# Map Home Assistant arch to .NET Runtime Identifier (RID)
+# aarch64 -> linux-arm64, amd64 -> linux-x64
 COPY . .
-RUN dotnet publish "SwampTimers.csproj" \
-    -c Release \
-    -o /app/publish \
-    --self-contained false \
-    --runtime linux-x64 \
-    /p:UseAppHost=false
+RUN DOTNET_RID=$(case "${BUILD_ARCH}" in \
+      "aarch64") echo "linux-arm64" ;; \
+      "amd64") echo "linux-x64" ;; \
+      *) echo "linux-x64" ;; \
+    esac) && \
+    echo "Building for architecture: ${BUILD_ARCH} (RID: ${DOTNET_RID})" && \
+    dotnet publish "SwampTimers.csproj" \
+      -c Release \
+      -o /app/publish \
+      --self-contained false \
+      --runtime ${DOTNET_RID} \
+      /p:UseAppHost=false
 
 # Runtime stage
 FROM ${BUILD_FROM}
