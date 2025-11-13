@@ -1,5 +1,5 @@
 # Build stage
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
+ARG BUILD_FROM
 ARG BUILD_ARCH
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
