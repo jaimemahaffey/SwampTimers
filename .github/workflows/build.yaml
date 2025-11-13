@@ -46,7 +46,6 @@ jobs:
           args: |
             --${{ matrix.arch }} \
             --target swamptimers \
-            --docker-context ./ \
             --docker-hub ghcr.io/${{ github.repository_owner }} \
             --image swamptimers-{arch} \
             --version ${{ steps.version.outputs.version }}
