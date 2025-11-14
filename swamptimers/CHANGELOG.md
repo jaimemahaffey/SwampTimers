@@ -2,6 +2,14 @@
 
 All notable changes to the SwampTimers Home Assistant Add-on will be documented in this file.
 
+## [1.0.5] - 2025-11-14
+
+### Fixed
+- **Critical Build Architecture Bug**: Fixed BUILD_ARCH variable not available in build stage
+	- Re-declared BUILD_ARCH in build stage (after FROM statement)
+	- v1.0.4 only fixed runtime stage, but build stage was still publishing linux-x64 instead of linux-arm64
+	- Application DLLs are now correctly built for ARM64 architecture
+
 ## [1.0.4] - 2025-11-13
 
 ### Fixed

@@ -2,6 +2,10 @@
 ARG BUILD_FROM
 ARG BUILD_ARCH
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+
+# Re-declare BUILD_ARCH for this stage (ARGs don't persist across FROM)
+ARG BUILD_ARCH
+
 WORKDIR /src
 
 # Copy project files and restore (with caching)
