@@ -30,6 +30,10 @@ RUN DOTNET_RID=$(case "${BUILD_ARCH}" in \
 # Runtime stage
 FROM ${BUILD_FROM}
 
+# Re-declare ARGs for this stage (ARGs don't persist across FROM)
+ARG BUILD_ARCH
+ARG BUILD_VERSION
+
 # Install .NET 9 runtime dependencies
 RUN apk add --no-cache \
     icu-libs \

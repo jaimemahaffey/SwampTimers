@@ -2,6 +2,14 @@
 
 All notable changes to the SwampTimers Home Assistant Add-on will be documented in this file.
 
+## [1.0.4] - 2025-11-13
+
+### Fixed
+- **Critical Architecture Bug**: Fixed BUILD_ARCH variable not being passed to runtime stage
+	- Added ARG re-declaration in runtime stage (Docker ARGs don't persist across FROM statements)
+	- This was causing .NET runtime to install x64 instead of arm64 despite architecture mapping logic
+	- Root cause: BUILD_ARCH was empty in runtime stage, defaulting to x64
+
 ## [1.0.3] - 2025-11-12
 
 ### Fixed
