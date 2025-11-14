@@ -3,6 +3,7 @@ using SwampTimers.Services;
 using SwampTimers.Models;
 using MudBlazor.Services;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +24,14 @@ Directory.CreateDirectory(dataProtectionPath);
 builder.Services.AddDataProtection()
 	.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
 	.SetApplicationName("SwampTimers");
+
+// Configure forwarded headers for Ingress proxy
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+	options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+	options.KnownNetworks.Clear();
+	options.KnownProxies.Clear();
+});
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -59,11 +68,15 @@ if (!app.Environment.IsDevelopment())
     // app.UseHsts();
 }
 
+// Use forwarded headers from Ingress proxy
+app.UseForwardedHeaders();
+
 // For Home Assistant Ingress support - handle base path
 var ingressPath = Environment.GetEnvironmentVariable("INGRESS_PATH");
 if (!string.IsNullOrEmpty(ingressPath))
 {
-    app.UsePathBase(new PathString(ingressPath));
+	app.UsePathBase(new PathString(ingressPath));
+	Console.WriteLine($"Using Ingress path base: {ingressPath}");
 }
 
 // Don't use HTTPS redirection in add-on (Ingress handles it)

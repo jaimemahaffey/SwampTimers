@@ -2,6 +2,15 @@
 
 All notable changes to the SwampTimers Home Assistant Add-on will be documented in this file.
 
+## [1.0.6] - 2025-11-14
+
+### Fixed
+- **Home Assistant Ingress Support**: Fixed URL routing for Ingress proxy
+	- Added ForwardedHeaders middleware to handle proxy headers
+	- Dynamic base href using INGRESS_PATH environment variable
+	- Static files and navigation now work correctly through Ingress
+	- Blazor SignalR websockets properly routed
+
 ## [1.0.5] - 2025-11-14
 
 ### Fixed
