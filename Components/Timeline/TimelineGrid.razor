@@ -1,0 +1,138 @@
+@using SwampTimers.Models
+@rendermode InteractiveServer
+
+<div class="timeline-grid-container">
+	@* Hour header row *@
+	<div class="timeline-header">
+		<div class="time-label-spacer"></div>
+		@for (int hour = 0; hour < 24; hour++)
+		{
+			<div class="hour-header">
+				@FormatHour(hour)
+			</div>
+		}
+	</div>
+
+	@* Timeline content area *@
+	<div class="timeline-content" @ref="_contentRef">
+		@* Hour gridlines *@
+		@for (int hour = 0; hour <= 24; hour++)
+		{
+			<div class="gridline @(hour % 6 == 0 ? "major" : "")"
+				 style="left: @((hour / 24.0 * 100).ToString("F2"))%;"></div>
+		}
+
+		@* Current time indicator *@
+		@if (ShowCurrentTime)
+		{
+			var now = DateTime.Now;
+			double currentPercent = ((now.Hour * 60 + now.Minute) / (24.0 * 60)) * 100;
+			<div class="current-time-indicator" style="left: @currentPercent.ToString("F2")%;"></div>
+		}
+
+		@* Timer blocks *@
+		<div class="blocks-container" @ref="_blocksContainer">
+			@foreach (var timer in GetTimeBasedTimers())
+			{
+				<TimelineBlock Timer="@timer"
+							   Row="@GetTimerRow(timer)"
+							   ContainerWidth="_containerWidth"
+							   OnTimerUpdated="OnTimerUpdated" />
+			}
+		</div>
+	</div>
+</div>
+
+@code {
+	[Parameter]
+	public List<TimerSchedule> Timers { get; set; } = new();
+
+	[Parameter]
+	public bool ShowCurrentTime { get; set; } = true;
+
+	[Parameter]
+	public EventCallback<TimerSchedule> OnTimerUpdated { get; set; }
+
+	private ElementReference _contentRef;
+	private ElementReference _blocksContainer;
+	private double _containerWidth = 1200; // Default, will be updated
+
+	private IEnumerable<TimerSchedule> GetTimeBasedTimers()
+	{
+		// Filter out RecurringTimers - they don't have time-of-day
+		return Timers.Where(t => t is DurationTimer or TimeRangeTimer);
+	}
+
+	private int GetTimerRow(TimerSchedule timer)
+	{
+		// Simple row assignment - could be enhanced with overlap detection
+		var timeBasedTimers = GetTimeBasedTimers().ToList();
+		var index = timeBasedTimers.IndexOf(timer);
+
+		// Check for overlaps and stack accordingly
+		int row = 0;
+		var (startMinutes, durationMinutes) = GetTimerMinutes(timer);
+		int endMinutes = startMinutes + durationMinutes;
+
+		foreach (var other in timeBasedTimers.Take(index))
+		{
+			var (otherStart, otherDuration) = GetTimerMinutes(other);
+			int otherEnd = otherStart + otherDuration;
+
+			// Check if they overlap
+			if (TimersOverlap(startMinutes, endMinutes, otherStart, otherEnd))
+			{
+				row = Math.Max(row, GetTimerRow(other) + 1);
+			}
+		}
+
+		return row;
+	}
+
+	private bool TimersOverlap(int start1, int end1, int start2, int end2)
+	{
+		// Handle midnight spanning
+		if (end1 > 24 * 60) end1 -= 24 * 60;
+		if (end2 > 24 * 60) end2 -= 24 * 60;
+
+		// Simple overlap check
+		return !(end1 <= start2 || end2 <= start1);
+	}
+
+	private (int startMinutes, int durationMinutes) GetTimerMinutes(TimerSchedule timer)
+	{
+		return timer switch
+		{
+			DurationTimer dt => (
+				dt.StartTime.Hour * 60 + dt.StartTime.Minute,
+				dt.DurationMinutes
+			),
+			TimeRangeTimer trt => (
+				trt.OnTime.Hour * 60 + trt.OnTime.Minute,
+				CalculateTimeRangeDuration(trt.OnTime, trt.OffTime)
+			),
+			_ => (0, 60)
+		};
+	}
+
+	private int CalculateTimeRangeDuration(TimeOnly onTime, TimeOnly offTime)
+	{
+		int onMinutes = onTime.Hour * 60 + onTime.Minute;
+		int offMinutes = offTime.Hour * 60 + offTime.Minute;
+
+		if (offMinutes <= onMinutes)
+		{
+			return (24 * 60 - onMinutes) + offMinutes;
+		}
+
+		return offMinutes - onMinutes;
+	}
+
+	private string FormatHour(int hour)
+	{
+		if (hour == 0) return "12a";
+		if (hour == 12) return "12p";
+		if (hour < 12) return $"{hour}a";
+		return $"{hour - 12}p";
+	}
+}

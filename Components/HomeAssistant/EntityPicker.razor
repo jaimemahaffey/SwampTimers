@@ -1,0 +1,70 @@
+@using SwampTimers.Models.HomeAssistant
+@using SwampTimers.Services.HomeAssistant
+@inject IHomeAssistantClient HaClient
+
+<MudAutocomplete T="string"
+				 Value="@Value"
+				 ValueChanged="@ValueChanged"
+				 SearchFunc="@SearchEntities"
+				 Label="@Label"
+				 Variant="Variant.Outlined"
+				 Dense="true"
+				 CoerceValue="true"
+				 Placeholder="e.g., switch.living_room"
+				 Adornment="Adornment.Start"
+				 AdornmentIcon="@Icons.Material.Filled.Lightbulb"
+				 AdornmentColor="Color.Primary"
+				 Class="@Class" />
+
+@code {
+	[Parameter]
+	public string Value { get; set; } = string.Empty;
+
+	[Parameter]
+	public EventCallback<string> ValueChanged { get; set; }
+
+	[Parameter]
+	public string Label { get; set; } = "Entity ID";
+
+	[Parameter]
+	public string Class { get; set; } = string.Empty;
+
+	[Parameter]
+	public string[] FilterDomains { get; set; } = Array.Empty<string>();
+
+	private List<HaEntity>? _cachedEntities;
+
+	private async Task<IEnumerable<string>> SearchEntities(string value, CancellationToken token)
+	{
+		// Load entities if not cached
+		if (_cachedEntities == null)
+		{
+			try
+			{
+				_cachedEntities = FilterDomains.Length > 0
+					? await HaClient.GetEntitiesByDomainAsync(FilterDomains)
+					: await HaClient.GetEntitiesAsync();
+			}
+			catch
+			{
+				_cachedEntities = new List<HaEntity>();
+			}
+		}
+
+		// Return all entities if search is empty
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			return _cachedEntities
+				.Select(e => e.EntityId)
+				.Take(50);
+		}
+
+		// Filter by search term (matches entity_id or friendly_name)
+		return _cachedEntities
+			.Where(e =>
+				e.EntityId.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+				(e.FriendlyName?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false))
+			.Select(e => e.EntityId)
+			.Take(50);
+	}
+}
