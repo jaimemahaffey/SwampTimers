@@ -1,0 +1,86 @@
+.timeline-grid-container {
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 4px;
+	background: var(--mud-palette-surface);
+	overflow: hidden;
+}
+
+/* Header row with hour labels */
+.timeline-header {
+	display: flex;
+	border-bottom: 1px solid var(--mud-palette-lines-default);
+	background: var(--mud-palette-background-grey);
+	flex-shrink: 0;
+}
+
+.time-label-spacer {
+	width: 0;
+	flex-shrink: 0;
+}
+
+.hour-header {
+	flex: 1;
+	min-width: 0;
+	padding: 8px 0;
+	text-align: center;
+	font-size: 0.7rem;
+	color: var(--mud-palette-text-secondary);
+	border-left: 1px solid var(--mud-palette-lines-default);
+}
+
+.hour-header:first-of-type {
+	border-left: none;
+}
+
+/* Main timeline content area */
+.timeline-content {
+	position: relative;
+	min-height: 120px;
+	padding: 8px 0;
+}
+
+/* Vertical gridlines */
+.gridline {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 1px;
+	background: var(--mud-palette-lines-default);
+	pointer-events: none;
+	z-index: 1;
+}
+
+.gridline.major {
+	background: var(--mud-palette-text-disabled);
+}
+
+/* Current time indicator */
+.current-time-indicator {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: var(--mud-palette-error);
+	z-index: 50;
+	pointer-events: none;
+}
+
+.current-time-indicator::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -4px;
+	width: 10px;
+	height: 10px;
+	background: var(--mud-palette-error);
+	border-radius: 50%;
+}
+
+/* Container for timer blocks */
+.blocks-container {
+	position: relative;
+	min-height: 100px;
+	z-index: 10;
+}

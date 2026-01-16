@@ -1,0 +1,150 @@
+@using SwampTimers.Models
+@rendermode InteractiveServer
+
+<div class="timeline-view">
+	@* Controls bar *@
+	<div class="timeline-controls">
+		<MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
+			<MudButton Color="@(_viewMode == ViewMode.Day ? Color.Primary : Color.Default)"
+					   OnClick="@(() => SetViewMode(ViewMode.Day))">
+				Day
+			</MudButton>
+			<MudButton Color="@(_viewMode == ViewMode.Week ? Color.Primary : Color.Default)"
+					   OnClick="@(() => SetViewMode(ViewMode.Week))">
+				Week
+			</MudButton>
+		</MudButtonGroup>
+
+		<MudSpacer />
+
+		@if (_viewMode == ViewMode.Day)
+		{
+			<MudButtonGroup Variant="Variant.Text" Size="Size.Small">
+				<MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+							   OnClick="PreviousDay"
+							   Size="Size.Small" />
+				<MudButton OnClick="GoToToday" Size="Size.Small">
+					@_selectedDate.ToString("ddd, MMM d")
+				</MudButton>
+				<MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+							   OnClick="NextDay"
+							   Size="Size.Small" />
+			</MudButtonGroup>
+		}
+		else
+		{
+			<MudButtonGroup Variant="Variant.Text" Size="Size.Small">
+				<MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+							   OnClick="PreviousWeek"
+							   Size="Size.Small" />
+				<MudButton OnClick="GoToToday" Size="Size.Small">
+					Week of @GetWeekStart().ToString("MMM d")
+				</MudButton>
+				<MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+							   OnClick="NextWeek"
+							   Size="Size.Small" />
+			</MudButtonGroup>
+		}
+	</div>
+
+	@* Timeline grid *@
+	@if (_viewMode == ViewMode.Day)
+	{
+		<TimelineGrid Timers="@GetTimersForDay(_selectedDate.DayOfWeek)"
+					  ShowCurrentTime="@IsToday()"
+					  OnTimerUpdated="OnTimerUpdated" />
+	}
+	else
+	{
+		@* Weekly view - show 7 days *@
+		<div class="weekly-view">
+			@for (int i = 0; i < 7; i++)
+			{
+				var dayDate = GetWeekStart().AddDays(i);
+				var dayOfWeek = dayDate.DayOfWeek;
+				var isToday = dayDate == DateOnly.FromDateTime(DateTime.Today);
+
+				<div class="day-row @(isToday ? "today" : "")">
+					<div class="day-label">
+						<span class="day-name">@dayOfWeek.ToString().Substring(0, 3)</span>
+						<span class="day-date">@dayDate.ToString("M/d")</span>
+					</div>
+					<div class="day-timeline">
+						<TimelineGrid Timers="@GetTimersForDay(dayOfWeek)"
+									  ShowCurrentTime="@isToday"
+									  OnTimerUpdated="OnTimerUpdated" />
+					</div>
+				</div>
+			}
+		</div>
+	}
+
+	@if (GetTimeBasedTimers().Count() == 0)
+	{
+		<MudAlert Severity="Severity.Info" Class="mt-4">
+			No time-based timers to display. Create a Duration or Time Range timer to see it on the timeline.
+		</MudAlert>
+	}
+</div>
+
+@code {
+	public enum ViewMode { Day, Week }
+
+	[Parameter]
+	public List<TimerSchedule> Timers { get; set; } = new();
+
+	[Parameter]
+	public EventCallback<TimerSchedule> OnTimerUpdated { get; set; }
+
+	private ViewMode _viewMode = ViewMode.Day;
+	private DateOnly _selectedDate = DateOnly.FromDateTime(DateTime.Today);
+
+	private void SetViewMode(ViewMode mode)
+	{
+		_viewMode = mode;
+	}
+
+	private void PreviousDay() => _selectedDate = _selectedDate.AddDays(-1);
+	private void NextDay() => _selectedDate = _selectedDate.AddDays(1);
+	private void PreviousWeek() => _selectedDate = _selectedDate.AddDays(-7);
+	private void NextWeek() => _selectedDate = _selectedDate.AddDays(7);
+
+	private void GoToToday()
+	{
+		_selectedDate = DateOnly.FromDateTime(DateTime.Today);
+	}
+
+	private bool IsToday() => _selectedDate == DateOnly.FromDateTime(DateTime.Today);
+
+	private DateOnly GetWeekStart()
+	{
+		// Get Monday of the current week
+		int diff = (7 + (_selectedDate.DayOfWeek - DayOfWeek.Monday)) % 7;
+		return _selectedDate.AddDays(-diff);
+	}
+
+	private IEnumerable<TimerSchedule> GetTimeBasedTimers()
+	{
+		return Timers.Where(t => t is DurationTimer or TimeRangeTimer);
+	}
+
+	private List<TimerSchedule> GetTimersForDay(DayOfWeek day)
+	{
+		return GetTimeBasedTimers()
+			.Where(t => IsTimerActiveOnDay(t, day))
+			.ToList();
+	}
+
+	private bool IsTimerActiveOnDay(TimerSchedule timer, DayOfWeek day)
+	{
+		var activeDays = timer switch
+		{
+			DurationTimer dt => dt.ActiveDays,
+			TimeRangeTimer trt => trt.ActiveDays,
+			_ => new List<DayOfWeek>()
+		};
+
+		// Empty ActiveDays means active every day
+		return activeDays.Count == 0 || activeDays.Contains(day);
+	}
+}

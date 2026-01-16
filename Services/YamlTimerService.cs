@@ -1,8 +1,11 @@
 using SwampTimers.Models;
+using SwampTimers.Models.HomeAssistant;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using Google.Protobuf;
+using PeriodicEvents.Proto;
 
 namespace SwampTimers.Services;
 
@@ -327,8 +330,12 @@ public class YamlTimerService : ITimerService, IDisposable
                     OffTime = rawTimer.OffTime ?? TimeOnly.MinValue,
                     ActiveDays = rawTimer.ActiveDays ?? new List<DayOfWeek>()
                 },
+                "Recurring" or "Periodic" => CreateRecurringTimer(rawTimer),
                 _ => throw new InvalidOperationException($"Unknown timer type: {rawTimer.TimerType}")
             };
+
+            // Set HomeAssistantBinding for all timer types
+            timer.HomeAssistantBinding = rawTimer.HomeAssistantBinding;
 
             data.Timers.Add(timer);
         }
@@ -336,35 +343,88 @@ public class YamlTimerService : ITimerService, IDisposable
         return data;
     }
 
+    private static RecurringTimer CreateRecurringTimer(YamlTimerRaw rawTimer)
+    {
+        var recurringTimer = new RecurringTimer
+        {
+            Id = rawTimer.Id,
+            Name = rawTimer.Name,
+            Description = rawTimer.Description,
+            IsEnabled = rawTimer.IsEnabled,
+            CreatedAt = rawTimer.CreatedAt,
+            LastModifiedAt = rawTimer.LastModifiedAt
+        };
+
+        if (!string.IsNullOrEmpty(rawTimer.EventJson))
+        {
+            recurringTimer.Event = JsonParser.Default.Parse<PeriodicEvent>(rawTimer.EventJson);
+        }
+
+        if (!string.IsNullOrEmpty(rawTimer.CurrentOccurrenceJson))
+        {
+            recurringTimer.CurrentOccurrence = JsonParser.Default.Parse<EventOccurrence>(rawTimer.CurrentOccurrenceJson);
+        }
+
+        if (!string.IsNullOrEmpty(rawTimer.LastCompletedOccurrenceJson))
+        {
+            recurringTimer.LastCompletedOccurrence = JsonParser.Default.Parse<EventOccurrence>(rawTimer.LastCompletedOccurrenceJson);
+        }
+
+        return recurringTimer;
+    }
+
     private async Task SaveDataAsync(YamlTimerData data)
     {
         // Convert to raw format for serialization
         var rawData = new YamlTimerDataRaw
         {
-            Timers = data.Timers.Select(t => new YamlTimerRaw
-            {
-                Id = t.Id,
-                TimerType = t.TimerType,
-                Name = t.Name,
-                Description = t.Description,
-                IsEnabled = t.IsEnabled,
-                CreatedAt = t.CreatedAt,
-                LastModifiedAt = t.LastModifiedAt,
-                StartTime = t is DurationTimer dt ? dt.StartTime : null,
-                DurationMinutes = t is DurationTimer dtm ? dtm.DurationMinutes : null,
-                OnTime = t is TimeRangeTimer trt ? trt.OnTime : null,
-                OffTime = t is TimeRangeTimer trf ? trf.OffTime : null,
-                ActiveDays = t switch
-                {
-                    DurationTimer duration => duration.ActiveDays,
-                    TimeRangeTimer timeRange => timeRange.ActiveDays,
-                    _ => new List<DayOfWeek>()
-                }
-            }).ToList()
+            Timers = data.Timers.Select(t => CreateRawTimer(t)).ToList()
         };
 
         var yaml = _serializer.Serialize(rawData);
         await File.WriteAllTextAsync(_filePath, yaml);
+    }
+
+    private static YamlTimerRaw CreateRawTimer(TimerSchedule timer)
+    {
+        var raw = new YamlTimerRaw
+        {
+            Id = timer.Id,
+            TimerType = timer.TimerType,
+            Name = timer.Name,
+            Description = timer.Description,
+            IsEnabled = timer.IsEnabled,
+            CreatedAt = timer.CreatedAt,
+            LastModifiedAt = timer.LastModifiedAt
+        };
+
+        switch (timer)
+        {
+            case DurationTimer dt:
+                raw.StartTime = dt.StartTime;
+                raw.DurationMinutes = dt.DurationMinutes;
+                raw.ActiveDays = dt.ActiveDays;
+                break;
+            case TimeRangeTimer tr:
+                raw.OnTime = tr.OnTime;
+                raw.OffTime = tr.OffTime;
+                raw.ActiveDays = tr.ActiveDays;
+                break;
+            case RecurringTimer rt:
+                raw.EventJson = JsonFormatter.Default.Format(rt.Event);
+                raw.CurrentOccurrenceJson = rt.CurrentOccurrence != null
+                    ? JsonFormatter.Default.Format(rt.CurrentOccurrence)
+                    : null;
+                raw.LastCompletedOccurrenceJson = rt.LastCompletedOccurrence != null
+                    ? JsonFormatter.Default.Format(rt.LastCompletedOccurrence)
+                    : null;
+                break;
+        }
+
+        // Copy HomeAssistantBinding for all timer types
+        raw.HomeAssistantBinding = timer.HomeAssistantBinding;
+
+        return raw;
     }
 
     public void Dispose()
@@ -397,5 +457,11 @@ public class YamlTimerService : ITimerService, IDisposable
         public TimeOnly? OnTime { get; set; }
         public TimeOnly? OffTime { get; set; }
         public List<DayOfWeek>? ActiveDays { get; set; }
+        // RecurringTimer fields (protobuf data stored as JSON strings)
+        public string? EventJson { get; set; }
+        public string? CurrentOccurrenceJson { get; set; }
+        public string? LastCompletedOccurrenceJson { get; set; }
+        // Home Assistant binding (applies to all timer types)
+        public TimerEntityBinding? HomeAssistantBinding { get; set; }
     }
 }

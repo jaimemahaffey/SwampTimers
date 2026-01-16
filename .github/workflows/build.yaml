@@ -15,18 +15,21 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 jobs:
   build:
-    name: Build add-on
-    runs-on: ubuntu-latest
+    name: Build add-on (ARM64)
+    runs-on: ubuntu-24.04-arm64
     timeout-minutes: 60
-    strategy:
-      matrix:
-        arch: [aarch64]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.6.0'
 
       - name: Setup build context
         run: |
@@ -62,7 +65,7 @@ jobs:
         uses: home-assistant/builder@master
         with:
           args: |
-            --${{ matrix.arch }} \
+            --aarch64 \
             --target swamptimers \
             --docker-hub ghcr.io/${{ github.repository_owner }} \
             --image swamptimers-{arch} \

@@ -1,0 +1,245 @@
+@using SwampTimers.Models
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<div class="timeline-block @GetBlockTypeClass() @(IsDisabled ? "disabled" : "") @(_isDragging ? "dragging" : "")"
+	 style="@GetBlockStyle()"
+	 title="@Timer.Name"
+	 @onpointerdown="OnPointerDown"
+	 @onpointermove="OnPointerMove"
+	 @onpointerup="OnPointerUp"
+	 @onpointerleave="OnPointerUp"
+	 @ref="_blockRef">
+
+	@* Left resize handle *@
+	<div class="resize-handle resize-left"
+		 @onpointerdown="OnLeftResizeStart"
+		 @onpointerdown:stopPropagation="true"></div>
+
+	@* Block content *@
+	<div class="block-content">
+		<span class="timer-name">@Timer.Name</span>
+		<span class="timer-time">@GetTimeRange()</span>
+	</div>
+
+	@* Right resize handle *@
+	<div class="resize-handle resize-right"
+		 @onpointerdown="OnRightResizeStart"
+		 @onpointerdown:stopPropagation="true"></div>
+
+	@* Drag tooltip *@
+	@if (_isDragging || _isResizing)
+	{
+		<div class="drag-tooltip">@GetTimeRange()</div>
+	}
+</div>
+
+@code {
+	[Parameter, EditorRequired]
+	public TimerSchedule Timer { get; set; } = null!;
+
+	[Parameter]
+	public double ContainerWidth { get; set; } = 1200; // pixels
+
+	[Parameter]
+	public int Row { get; set; } = 0;
+
+	[Parameter]
+	public EventCallback<TimerSchedule> OnTimerUpdated { get; set; }
+
+	private ElementReference _blockRef;
+	private bool _isDragging = false;
+	private bool _isResizing = false;
+	private bool _isResizingLeft = false;
+	private double _startPointerX;
+	private int _originalStartMinutes;
+	private int _originalDurationMinutes;
+
+	// Temporary values during drag
+	private int _currentStartMinutes;
+	private int _currentDurationMinutes;
+
+	private bool IsDisabled => !Timer.IsEnabled;
+
+	protected override void OnParametersSet()
+	{
+		var (start, duration) = GetTimerMinutes();
+		_currentStartMinutes = start;
+		_currentDurationMinutes = duration;
+	}
+
+	private string GetBlockTypeClass() => Timer switch
+	{
+		DurationTimer => "duration",
+		TimeRangeTimer => "timerange",
+		_ => ""
+	};
+
+	private string GetBlockStyle()
+	{
+		double leftPercent = (_currentStartMinutes / (24.0 * 60)) * 100;
+		double widthPercent = (_currentDurationMinutes / (24.0 * 60)) * 100;
+		widthPercent = Math.Max(widthPercent, 1);
+
+		return $"left: {leftPercent:F2}%; width: {widthPercent:F2}%; top: {Row * 36 + 4}px;";
+	}
+
+	private void OnPointerDown(PointerEventArgs e)
+	{
+		if (IsDisabled) return;
+
+		_isDragging = true;
+		_startPointerX = e.ClientX;
+		var (start, duration) = GetTimerMinutes();
+		_originalStartMinutes = start;
+		_originalDurationMinutes = duration;
+		_currentStartMinutes = start;
+		_currentDurationMinutes = duration;
+	}
+
+	private void OnPointerMove(PointerEventArgs e)
+	{
+		if (!_isDragging && !_isResizing) return;
+
+		double deltaX = e.ClientX - _startPointerX;
+		double minutesPerPixel = (24.0 * 60) / ContainerWidth;
+		int deltaMinutes = (int)(deltaX * minutesPerPixel);
+
+		if (_isDragging)
+		{
+			// Move the entire block
+			_currentStartMinutes = _originalStartMinutes + deltaMinutes;
+			// Keep within 0-24 hours, allow wrapping
+			_currentStartMinutes = ((_currentStartMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+		}
+		else if (_isResizing)
+		{
+			if (_isResizingLeft)
+			{
+				// Resize from the left (change start time and duration)
+				int newStart = _originalStartMinutes + deltaMinutes;
+				newStart = Math.Max(0, Math.Min(24 * 60 - 5, newStart));
+
+				int endMinutes = _originalStartMinutes + _originalDurationMinutes;
+				int newDuration = endMinutes - newStart;
+
+				if (newDuration >= 5) // Minimum 5 minutes
+				{
+					_currentStartMinutes = newStart;
+					_currentDurationMinutes = newDuration;
+				}
+			}
+			else
+			{
+				// Resize from the right (change duration only)
+				int newDuration = _originalDurationMinutes + deltaMinutes;
+				newDuration = Math.Max(5, Math.Min(24 * 60, newDuration)); // Min 5 min, max 24 hours
+				_currentDurationMinutes = newDuration;
+			}
+		}
+
+		StateHasChanged();
+	}
+
+	private async Task OnPointerUp(PointerEventArgs e)
+	{
+		if (!_isDragging && !_isResizing) return;
+
+		bool wasModified = _isDragging || _isResizing;
+		_isDragging = false;
+		_isResizing = false;
+
+		if (wasModified && (_currentStartMinutes != _originalStartMinutes || _currentDurationMinutes != _originalDurationMinutes))
+		{
+			// Apply changes to the timer
+			ApplyTimeChanges();
+			await OnTimerUpdated.InvokeAsync(Timer);
+		}
+	}
+
+	private void OnLeftResizeStart(PointerEventArgs e)
+	{
+		if (IsDisabled) return;
+
+		_isResizing = true;
+		_isResizingLeft = true;
+		_startPointerX = e.ClientX;
+		var (start, duration) = GetTimerMinutes();
+		_originalStartMinutes = start;
+		_originalDurationMinutes = duration;
+		_currentStartMinutes = start;
+		_currentDurationMinutes = duration;
+	}
+
+	private void OnRightResizeStart(PointerEventArgs e)
+	{
+		if (IsDisabled) return;
+
+		_isResizing = true;
+		_isResizingLeft = false;
+		_startPointerX = e.ClientX;
+		var (start, duration) = GetTimerMinutes();
+		_originalStartMinutes = start;
+		_originalDurationMinutes = duration;
+		_currentStartMinutes = start;
+		_currentDurationMinutes = duration;
+	}
+
+	private void ApplyTimeChanges()
+	{
+		var newStartTime = new TimeOnly(_currentStartMinutes / 60, _currentStartMinutes % 60);
+
+		switch (Timer)
+		{
+			case DurationTimer dt:
+				dt.StartTime = newStartTime;
+				dt.DurationMinutes = _currentDurationMinutes;
+				break;
+
+			case TimeRangeTimer trt:
+				trt.OnTime = newStartTime;
+				int endMinutes = (_currentStartMinutes + _currentDurationMinutes) % (24 * 60);
+				trt.OffTime = new TimeOnly(endMinutes / 60, endMinutes % 60);
+				break;
+		}
+	}
+
+	private (int startMinutes, int durationMinutes) GetTimerMinutes()
+	{
+		return Timer switch
+		{
+			DurationTimer dt => (
+				dt.StartTime.Hour * 60 + dt.StartTime.Minute,
+				dt.DurationMinutes
+			),
+			TimeRangeTimer trt => (
+				trt.OnTime.Hour * 60 + trt.OnTime.Minute,
+				CalculateTimeRangeDuration(trt.OnTime, trt.OffTime)
+			),
+			_ => (0, 60)
+		};
+	}
+
+	private int CalculateTimeRangeDuration(TimeOnly onTime, TimeOnly offTime)
+	{
+		int onMinutes = onTime.Hour * 60 + onTime.Minute;
+		int offMinutes = offTime.Hour * 60 + offTime.Minute;
+
+		if (offMinutes <= onMinutes)
+		{
+			return (24 * 60 - onMinutes) + offMinutes;
+		}
+
+		return offMinutes - onMinutes;
+	}
+
+	private string GetTimeRange()
+	{
+		var startTime = new TimeOnly(_currentStartMinutes / 60, _currentStartMinutes % 60);
+		int endMinutes = (_currentStartMinutes + _currentDurationMinutes) % (24 * 60);
+		var endTime = new TimeOnly(endMinutes / 60, endMinutes % 60);
+
+		return $"{startTime:h\\:mm tt} - {endTime:h\\:mm tt}";
+	}
+}

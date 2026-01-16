@@ -1,6 +1,9 @@
 using SwampTimers.Models;
+using SwampTimers.Models.HomeAssistant;
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
+using Google.Protobuf;
+using PeriodicEvents.Proto;
 
 namespace SwampTimers.Services;
 
@@ -41,9 +44,17 @@ public class SqliteTimerService : ITimerService, IDisposable
                     OnTime TEXT,
                     OffTime TEXT,
                     DurationMinutes INTEGER,
-                    ActiveDays TEXT
+                    ActiveDays TEXT,
+                    PeriodicData TEXT,
+                    HomeAssistantBinding TEXT
                 )";
             await command.ExecuteNonQueryAsync();
+
+            // Migration: Add PeriodicData column if it doesn't exist
+            await TryAddColumnAsync(connection, "PeriodicData", "TEXT");
+
+            // Migration: Add HomeAssistantBinding column if it doesn't exist
+            await TryAddColumnAsync(connection, "HomeAssistantBinding", "TEXT");
         }
         finally
         {
@@ -109,7 +120,13 @@ public class SqliteTimerService : ITimerService, IDisposable
 
     public async Task<List<T>> GetByTypeAsync<T>() where T : TimerSchedule
     {
-        var timerType = typeof(T).Name == nameof(DurationTimer) ? "Duration" : "TimeRange";
+        var timerType = typeof(T).Name switch
+        {
+            nameof(DurationTimer) => "Duration",
+            nameof(TimeRangeTimer) => "TimeRange",
+            nameof(RecurringTimer) => "Recurring",
+            _ => throw new InvalidOperationException($"Unknown timer type: {typeof(T).Name}")
+        };
 
         await _semaphore.WaitAsync();
         try
@@ -191,10 +208,10 @@ public class SqliteTimerService : ITimerService, IDisposable
             command.CommandText = @"
                 INSERT INTO TimerSchedules
                 (TimerType, Name, Description, IsEnabled, CreatedAt, LastModifiedAt,
-                 StartTime, OnTime, OffTime, DurationMinutes, ActiveDays)
+                 StartTime, OnTime, OffTime, DurationMinutes, ActiveDays, PeriodicData, HomeAssistantBinding)
                 VALUES
                 (@timerType, @name, @description, @isEnabled, @createdAt, @lastModifiedAt,
-                 @startTime, @onTime, @offTime, @durationMinutes, @activeDays);
+                 @startTime, @onTime, @offTime, @durationMinutes, @activeDays, @periodicData, @homeAssistantBinding);
                 SELECT last_insert_rowid();";
 
             AddParameters(command, timer);
@@ -232,7 +249,9 @@ public class SqliteTimerService : ITimerService, IDisposable
                     OnTime = @onTime,
                     OffTime = @offTime,
                     DurationMinutes = @durationMinutes,
-                    ActiveDays = @activeDays
+                    ActiveDays = @activeDays,
+                    PeriodicData = @periodicData,
+                    HomeAssistantBinding = @homeAssistantBinding
                 WHERE Id = @id";
 
             AddParameters(command, timer);
@@ -311,6 +330,7 @@ public class SqliteTimerService : ITimerService, IDisposable
             command.Parameters.AddWithValue("@offTime", DBNull.Value);
             command.Parameters.AddWithValue("@durationMinutes", durationTimer.DurationMinutes);
             command.Parameters.AddWithValue("@activeDays", JsonSerializer.Serialize(durationTimer.ActiveDays));
+            command.Parameters.AddWithValue("@periodicData", DBNull.Value);
         }
         else if (timer is TimeRangeTimer timeRangeTimer)
         {
@@ -319,7 +339,35 @@ public class SqliteTimerService : ITimerService, IDisposable
             command.Parameters.AddWithValue("@offTime", timeRangeTimer.OffTime.ToString("o"));
             command.Parameters.AddWithValue("@durationMinutes", DBNull.Value);
             command.Parameters.AddWithValue("@activeDays", JsonSerializer.Serialize(timeRangeTimer.ActiveDays));
+            command.Parameters.AddWithValue("@periodicData", DBNull.Value);
         }
+        else if (timer is RecurringTimer recurringTimer)
+        {
+            command.Parameters.AddWithValue("@startTime", DBNull.Value);
+            command.Parameters.AddWithValue("@onTime", DBNull.Value);
+            command.Parameters.AddWithValue("@offTime", DBNull.Value);
+            command.Parameters.AddWithValue("@durationMinutes", DBNull.Value);
+            command.Parameters.AddWithValue("@activeDays", DBNull.Value);
+
+            // Serialize recurring timer data as JSON
+            var periodicData = new
+            {
+                Event = JsonFormatter.Default.Format(recurringTimer.Event),
+                CurrentOccurrence = recurringTimer.CurrentOccurrence != null
+                    ? JsonFormatter.Default.Format(recurringTimer.CurrentOccurrence)
+                    : null,
+                LastCompletedOccurrence = recurringTimer.LastCompletedOccurrence != null
+                    ? JsonFormatter.Default.Format(recurringTimer.LastCompletedOccurrence)
+                    : null
+            };
+            command.Parameters.AddWithValue("@periodicData", JsonSerializer.Serialize(periodicData));
+        }
+
+        // Serialize HomeAssistantBinding for all timer types
+        command.Parameters.AddWithValue("@homeAssistantBinding",
+            timer.HomeAssistantBinding != null
+                ? JsonSerializer.Serialize(timer.HomeAssistantBinding)
+                : DBNull.Value);
     }
 
     private static TimerSchedule? MapFromReader(SqliteDataReader reader)
@@ -330,6 +378,8 @@ public class SqliteTimerService : ITimerService, IDisposable
         {
             "Duration" => new DurationTimer(),
             "TimeRange" => new TimeRangeTimer(),
+            "Recurring" => new RecurringTimer(),
+            "Periodic" => new RecurringTimer(), // Backward compatibility
             _ => throw new InvalidOperationException($"Unknown timer type: {timerType}")
         };
 
@@ -360,8 +410,56 @@ public class SqliteTimerService : ITimerService, IDisposable
             timeRangeTimer.OffTime = TimeOnly.Parse(reader.GetString(reader.GetOrdinal("OffTime")));
             timeRangeTimer.ActiveDays = JsonSerializer.Deserialize<List<DayOfWeek>>(activeDaysJson) ?? new();
         }
+        else if (timer is RecurringTimer recurringTimer)
+        {
+            var periodicDataOrdinal = reader.GetOrdinal("PeriodicData");
+            if (!reader.IsDBNull(periodicDataOrdinal))
+            {
+                var periodicDataJson = reader.GetString(periodicDataOrdinal);
+                var periodicData = JsonSerializer.Deserialize<JsonElement>(periodicDataJson);
+
+                if (periodicData.TryGetProperty("Event", out var eventJson))
+                {
+                    recurringTimer.Event = JsonParser.Default.Parse<PeriodicEvent>(eventJson.GetString() ?? "{}");
+                }
+
+                if (periodicData.TryGetProperty("CurrentOccurrence", out var currentOccurrenceJson) &&
+                    currentOccurrenceJson.GetString() != null)
+                {
+                    recurringTimer.CurrentOccurrence = JsonParser.Default.Parse<EventOccurrence>(currentOccurrenceJson.GetString()!);
+                }
+
+                if (periodicData.TryGetProperty("LastCompletedOccurrence", out var lastCompletedJson) &&
+                    lastCompletedJson.GetString() != null)
+                {
+                    recurringTimer.LastCompletedOccurrence = JsonParser.Default.Parse<EventOccurrence>(lastCompletedJson.GetString()!);
+                }
+            }
+        }
+
+        // Deserialize HomeAssistantBinding for all timer types
+        var haBindingOrdinal = reader.GetOrdinal("HomeAssistantBinding");
+        if (!reader.IsDBNull(haBindingOrdinal))
+        {
+            var haBindingJson = reader.GetString(haBindingOrdinal);
+            timer.HomeAssistantBinding = JsonSerializer.Deserialize<TimerEntityBinding>(haBindingJson);
+        }
 
         return timer;
+    }
+
+    private static async Task TryAddColumnAsync(SqliteConnection connection, string columnName, string columnType)
+    {
+        try
+        {
+            var alterCommand = connection.CreateCommand();
+            alterCommand.CommandText = $"ALTER TABLE TimerSchedules ADD COLUMN {columnName} {columnType}";
+            await alterCommand.ExecuteNonQueryAsync();
+        }
+        catch (SqliteException)
+        {
+            // Column already exists, ignore error
+        }
     }
 
     public void Dispose()

@@ -1,4 +1,5 @@
 @using SwampTimers.Models
+@using SwampTimers.Components.HomeAssistant
 
 <MudPaper Class="pa-4">
     <MudTextField @bind-Value="Timer.Name"
@@ -48,6 +49,8 @@
             End Time: @GetEndTime().ToString("hh:mm tt")
         </MudAlert>
     }
+
+    <TimerEntityBindingEditor @bind-Binding="Timer.HomeAssistantBinding" />
 </MudPaper>
 
 @code {

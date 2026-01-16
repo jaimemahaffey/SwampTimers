@@ -7,9 +7,24 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.33.4" />
+    <PackageReference Include="Grpc.Tools" Version="2.76.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="MudBlazor" Version="8.13.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="SwampTimers.Tests/**" />
+    <EmbeddedResource Remove="SwampTimers.Tests/**" />
+    <None Remove="SwampTimers.Tests/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="period_models\periodic_events.proto" GrpcServices="None" />
   </ItemGroup>
 
 </Project>

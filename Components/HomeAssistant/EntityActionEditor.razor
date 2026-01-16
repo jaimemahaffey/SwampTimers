@@ -1,0 +1,116 @@
+@using SwampTimers.Models.HomeAssistant
+
+<MudPaper Elevation="1" Class="pa-3 mb-2">
+	<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+		<MudSelect T="ActionType"
+				   Value="@Action.ActionType"
+				   ValueChanged="@OnActionTypeChanged"
+				   Label="Action Type"
+				   Variant="Variant.Outlined"
+				   Margin="Margin.Dense"
+				   Style="width: 140px;">
+			<MudSelectItem Value="ActionType.Toggle">Toggle</MudSelectItem>
+			<MudSelectItem Value="ActionType.ServiceCall">Service Call</MudSelectItem>
+		</MudSelect>
+
+		@if (Action.ActionType == ActionType.Toggle)
+		{
+			<EntityPicker Value="@Action.EntityId"
+						  ValueChanged="@OnEntityIdChanged"
+						  Label="Entity"
+						  Class="flex-grow-1"
+						  FilterDomains="@_toggleDomains" />
+		}
+		else
+		{
+			<MudTextField T="string"
+						  Value="@Action.ServiceDomain"
+						  ValueChanged="@OnServiceDomainChanged"
+						  Label="Domain"
+						  Variant="Variant.Outlined"
+						  Margin="Margin.Dense"
+						  Placeholder="light"
+						  Style="width: 100px;" />
+
+			<MudTextField T="string"
+						  Value="@Action.ServiceName"
+						  ValueChanged="@OnServiceNameChanged"
+						  Label="Service"
+						  Variant="Variant.Outlined"
+						  Margin="Margin.Dense"
+						  Placeholder="turn_on"
+						  Style="width: 120px;" />
+
+			<EntityPicker Value="@Action.EntityId"
+						  ValueChanged="@OnEntityIdChanged"
+						  Label="Entity (optional)"
+						  Class="flex-grow-1" />
+		}
+
+		<MudIconButton Icon="@Icons.Material.Filled.Delete"
+					   Color="Color.Error"
+					   Size="Size.Small"
+					   OnClick="@OnRemove" />
+	</MudStack>
+
+	@if (Action.ActionType == ActionType.ServiceCall)
+	{
+		<MudTextField T="string"
+					  Value="@Action.ServiceDataJson"
+					  ValueChanged="@OnServiceDataChanged"
+					  Label="Service Data (JSON)"
+					  Variant="Variant.Outlined"
+					  Margin="Margin.Dense"
+					  Lines="2"
+					  Placeholder='{"brightness": 255}'
+					  Class="mt-2" />
+	}
+</MudPaper>
+
+@code {
+	[Parameter]
+	public EntityAction Action { get; set; } = new();
+
+	[Parameter]
+	public EventCallback<EntityAction> ActionChanged { get; set; }
+
+	[Parameter]
+	public EventCallback OnRemoveClicked { get; set; }
+
+	private readonly string[] _toggleDomains = { "switch", "light", "fan", "cover", "climate", "automation", "script" };
+
+	private async Task OnActionTypeChanged(ActionType value)
+	{
+		Action.ActionType = value;
+		await ActionChanged.InvokeAsync(Action);
+	}
+
+	private async Task OnEntityIdChanged(string value)
+	{
+		Action.EntityId = value;
+		await ActionChanged.InvokeAsync(Action);
+	}
+
+	private async Task OnServiceDomainChanged(string value)
+	{
+		Action.ServiceDomain = value;
+		await ActionChanged.InvokeAsync(Action);
+	}
+
+	private async Task OnServiceNameChanged(string value)
+	{
+		Action.ServiceName = value;
+		await ActionChanged.InvokeAsync(Action);
+	}
+
+	private async Task OnServiceDataChanged(string value)
+	{
+		Action.ServiceDataJson = value;
+		await ActionChanged.InvokeAsync(Action);
+	}
+
+	private async Task OnRemove()
+	{
+		await OnRemoveClicked.InvokeAsync();
+	}
+}

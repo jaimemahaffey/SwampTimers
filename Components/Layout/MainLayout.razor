@@ -1,6 +1,6 @@
 @inherits LayoutComponentBase
 
-<MudThemeProvider @rendermode="InteractiveServer" Theme="_theme" />
+<MudThemeProvider @rendermode="InteractiveServer" Theme="_theme" @bind-IsDarkMode="_isDarkMode" />
 <MudLayout>
 	<TopNavBar />
 	<MudMainContent>
@@ -11,6 +11,8 @@
 </MudLayout>
 
 @code {
+	private bool _isDarkMode = true;
+
 	private MudTheme _theme = new MudTheme()
 	{
 		PaletteLight = new PaletteLight()
@@ -24,10 +26,25 @@
 		PaletteDark = new PaletteDark()
 		{
 			Primary = "#7e6fff",
-			AppbarBackground = "#27272f",
+			Secondary = "#48a9a6",
+			Tertiary = "#e4a854",
+			Background = "#1a1a2e",
+			Surface = "#16213e",
+			AppbarBackground = "#0f0f1a",
 			AppbarText = "#ffffff",
-			DrawerBackground = "#27272f",
-			DrawerText = "#ffffff"
+			DrawerBackground = "#16213e",
+			DrawerText = "#ffffff",
+			TextPrimary = "#e8e8e8",
+			TextSecondary = "#b0b0b0",
+			ActionDefault = "#9e9e9e",
+			ActionDisabled = "#5a5a5a",
+			Divider = "#2a2a4a",
+			LinesDefault = "#2a2a4a",
+			TableLines = "#2a2a4a",
+			Error = "#f44336",
+			Success = "#4caf50",
+			Warning = "#ff9800",
+			Info = "#2196f3"
 		}
 	};
 }

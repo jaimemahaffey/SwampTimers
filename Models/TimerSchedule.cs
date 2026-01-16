@@ -1,3 +1,5 @@
+using SwampTimers.Models.HomeAssistant;
+
 namespace SwampTimers.Models;
 
 /// <summary>
@@ -16,6 +18,11 @@ public abstract class TimerSchedule
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? LastModifiedAt { get; set; }
+
+    /// <summary>
+    /// Home Assistant entity bindings for this timer
+    /// </summary>
+    public TimerEntityBinding? HomeAssistantBinding { get; set; }
 
     /// <summary>
     /// Gets the timer type discriminator for storage

@@ -1,6 +1,8 @@
 using SwampTimers.Components;
 using SwampTimers.Services;
+using SwampTimers.Services.HomeAssistant;
 using SwampTimers.Models;
+using SwampTimers.Models.HomeAssistant;
 using MudBlazor.Services;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -50,6 +52,35 @@ builder.Services.AddScoped<ITimerService>(sp =>
         ?? new StorageOptions();
     return TimerServiceFactory.Create(config);
 });
+
+// Home Assistant Integration
+builder.Services.Configure<HomeAssistantOptions>(options =>
+{
+	var section = builder.Configuration.GetSection("HomeAssistant");
+	section.Bind(options);
+
+	// Override with environment variables if present (for HA add-on)
+	var supervisorToken = Environment.GetEnvironmentVariable("SUPERVISOR_TOKEN");
+	if (!string.IsNullOrEmpty(supervisorToken))
+	{
+		options.SupervisorToken = supervisorToken;
+		options.ApiUrl = "http://supervisor/core/api";
+	}
+});
+
+// Register IHomeAssistantClient - use real client if token is available, mock otherwise
+var supervisorToken = Environment.GetEnvironmentVariable("SUPERVISOR_TOKEN");
+if (!string.IsNullOrEmpty(supervisorToken))
+{
+	builder.Services.AddHttpClient<IHomeAssistantClient, HomeAssistantClient>();
+}
+else
+{
+	builder.Services.AddScoped<IHomeAssistantClient, MockHomeAssistantClient>();
+}
+
+// Background Timer Monitoring Service
+builder.Services.AddHostedService<TimerMonitoringService>();
 
 var app = builder.Build();
 

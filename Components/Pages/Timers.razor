@@ -2,17 +2,18 @@
 @page "/timers"
 @using SwampTimers.Models
 @using SwampTimers.Services
+@using PeriodicEvents.Proto
 @inject ITimerService TimerService
 @inject IDialogService DialogService
 @rendermode InteractiveServer
 
 <PageTitle>Timer Schedules</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     <MudText Typo="Typo.h4" GutterBottom="true">Timer Schedules</MudText>
 
     <MudPaper Class="pa-4 mb-4">
-        <MudStack Row="true" Spacing="2">
+        <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
             <MudButton Variant="Variant.Filled"
                       Color="Color.Primary"
                       OnClick="@(() => OpenCreateDialog("Duration"))"
@@ -24,6 +25,12 @@
                       OnClick="@(() => OpenCreateDialog("TimeRange"))"
                       StartIcon="@Icons.Material.Filled.Schedule">
                 Add Time Range Timer
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                      Color="Color.Tertiary"
+                      OnClick="@(() => OpenCreateDialog("Recurring"))"
+                      StartIcon="@Icons.Material.Filled.EventRepeat">
+                Add Recurring Timer
             </MudButton>
             <MudSpacer />
             <MudButton Variant="Variant.Outlined"
@@ -44,7 +51,9 @@
     }
     else
     {
-        <MudGrid>
+        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-0">
+            <MudTabPanel Text="Cards" Icon="@Icons.Material.Filled.ViewModule">
+                <MudGrid Class="mt-4">
             @foreach (var timer in _timers)
             {
                 <MudItem xs="12" md="6" lg="4">
@@ -52,7 +61,7 @@
                         <MudCardHeader>
                             <CardHeaderContent>
                                 <MudText Typo="Typo.h6">@timer.Name</MudText>
-                                <MudChip T="string" Size="Size.Small" Color="@(timer.TimerType == "Duration" ? Color.Primary : Color.Secondary)">
+                                <MudChip T="string" Size="Size.Small" Color="@GetTimerTypeColor(timer.TimerType)">
                                     @timer.TimerType
                                 </MudChip>
                             </CardHeaderContent>
@@ -83,6 +92,25 @@
                                     <strong>Off:</strong> @timeRangeTimer.OffTime.ToString("hh:mm tt")
                                 </MudText>
                             }
+                            else if (timer is RecurringTimer recurringTimer)
+                            {
+                                <MudText Typo="Typo.body2" Class="mt-2">
+                                    <strong>Event:</strong> @recurringTimer.Event.Name
+                                </MudText>
+                                <MudText Typo="Typo.body2">
+                                    <strong>Every:</strong> @FormatPeriod(recurringTimer.Event.PeriodType, recurringTimer.Event.PeriodValue)
+                                </MudText>
+                                @if (recurringTimer.CurrentOccurrence != null)
+                                {
+                                    var scheduledDate = new DateTime(
+                                        recurringTimer.CurrentOccurrence.ScheduledDate.Year,
+                                        recurringTimer.CurrentOccurrence.ScheduledDate.Month,
+                                        recurringTimer.CurrentOccurrence.ScheduledDate.Day);
+                                    <MudText Typo="Typo.body2">
+                                        <strong>Next Due:</strong> @scheduledDate.ToString("MMM d, yyyy")
+                                    </MudText>
+                                }
+                            }
 
                             @{
                                 var isActive = timer.IsActiveAt(DateTime.Now);
@@ -93,10 +121,10 @@
                                     Size="Size.Small"
                                     Color="@(isActive ? Color.Success : Color.Default)"
                                     Class="mt-2">
-                                @(isActive ? "Active Now" : "Inactive")
+                                @(isActive ? (timer is RecurringTimer ? "Due" : "Active Now") : "Inactive")
                             </MudChip>
 
-                            @if (nextEvent.HasValue)
+                            @if (timer is not RecurringTimer && nextEvent.HasValue)
                             {
                                 <MudText Typo="Typo.caption" Class="mt-1">
                                     Next @(isActive ? "off" : "on"): @nextEvent.Value.ToString("ddd, MMM d @ h:mm tt")
@@ -104,6 +132,15 @@
                             }
                         </MudCardContent>
                         <MudCardActions>
+                            @if (timer is RecurringTimer rt && rt.CurrentOccurrence != null && timer.IsActiveAt(DateTime.Now))
+                            {
+                                <MudButton Size="Size.Small"
+                                          Color="Color.Success"
+                                          Variant="Variant.Filled"
+                                          OnClick="@(() => CompleteRecurringTimer(rt))">
+                                    Complete
+                                </MudButton>
+                            }
                             <MudButton Size="Size.Small"
                                       Color="Color.Primary"
                                       OnClick="@(() => EditTimer(timer))">
@@ -118,7 +155,14 @@
                     </MudCard>
                 </MudItem>
             }
-        </MudGrid>
+                </MudGrid>
+            </MudTabPanel>
+            <MudTabPanel Text="Timeline" Icon="@Icons.Material.Filled.Timeline">
+                <div class="mt-4">
+                    <TimelineView Timers="_timers" OnTimerUpdated="OnTimelineTimerUpdated" />
+                </div>
+            </MudTabPanel>
+        </MudTabs>
     }
 </MudContainer>
 
@@ -146,13 +190,6 @@
 
     private async Task OpenCreateDialog(string timerType)
     {
-        // TODO: Implement dialog for creating timers
-        // For now, we'll create a simple default timer
-        await CreateDefaultTimer(timerType);
-    }
-
-    private async Task CreateDefaultTimer(string timerType)
-    {
         TimerSchedule newTimer = timerType switch
         {
             "Duration" => new DurationTimer
@@ -171,18 +208,57 @@
                 OffTime = TimeOnly.FromDateTime(DateTime.Now.AddHours(1)),
                 ActiveDays = new List<DayOfWeek>()
             },
+            "Recurring" => CreateNewRecurringTimer(),
             _ => throw new ArgumentException("Invalid timer type")
         };
 
-        await TimerService.CreateAsync(newTimer);
-        await LoadTimers();
+        var parameters = new DialogParameters
+        {
+            ["Timer"] = newTimer,
+            ["IsNew"] = true
+        };
+
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+
+        var dialog = await DialogService.ShowAsync<TimerEditDialog>($"Create {timerType} Timer", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is TimerSchedule createdTimer)
+        {
+            await TimerService.CreateAsync(createdTimer);
+            await LoadTimers();
+        }
+    }
+
+    private RecurringTimer CreateNewRecurringTimer()
+    {
+        var timer = new RecurringTimer
+        {
+            Name = "New Recurring Timer",
+            Description = "Edit this timer",
+            Event = new PeriodicEvent
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = "New Event",
+                PeriodType = PeriodType.Days,
+                PeriodValue = 7
+            }
+        };
+        timer.InitializeFirstOccurrence(DateTime.Today);
+        return timer;
     }
 
     private async Task EditTimer(TimerSchedule timer)
     {
         var parameters = new DialogParameters
         {
-            ["Timer"] = timer
+            ["Timer"] = timer,
+            ["IsNew"] = false
         };
 
         var options = new DialogOptions
@@ -226,4 +302,34 @@
             await LoadTimers();
         }
     }
+
+    private async Task CompleteRecurringTimer(RecurringTimer timer)
+    {
+        timer.CompleteCurrentOccurrence(DateTime.Today);
+        await TimerService.UpdateAsync(timer);
+        await LoadTimers();
+    }
+
+    private async Task OnTimelineTimerUpdated(TimerSchedule timer)
+    {
+        await TimerService.UpdateAsync(timer);
+        await LoadTimers();
+    }
+
+    private static Color GetTimerTypeColor(string timerType) => timerType switch
+    {
+        "Duration" => Color.Primary,
+        "TimeRange" => Color.Secondary,
+        "Recurring" => Color.Tertiary,
+        _ => Color.Default
+    };
+
+    private static string FormatPeriod(PeriodType periodType, int value) => periodType switch
+    {
+        PeriodType.Days => value == 1 ? "1 day" : $"{value} days",
+        PeriodType.Weeks => value == 1 ? "1 week" : $"{value} weeks",
+        PeriodType.Months => value == 1 ? "1 month" : $"{value} months",
+        PeriodType.Years => value == 1 ? "1 year" : $"{value} years",
+        _ => $"{value} days"
+    };
 }

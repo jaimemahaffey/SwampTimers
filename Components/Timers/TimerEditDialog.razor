@@ -11,6 +11,10 @@
         {
             <TimeRangeTimerEditor Timer="@timeRangeTimer" />
         }
+        else if (Timer is RecurringTimer recurringTimer)
+        {
+            <RecurringTimerEditor Timer="@recurringTimer" IsNew="@IsNew" />
+        }
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel" Variant="Variant.Outlined">Cancel</MudButton>
@@ -24,6 +28,9 @@
 
     [Parameter]
     public TimerSchedule? Timer { get; set; }
+
+    [Parameter]
+    public bool IsNew { get; set; } = false;
 
     private void Cancel()
     {

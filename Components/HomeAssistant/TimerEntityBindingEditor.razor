@@ -1,0 +1,176 @@
+@using SwampTimers.Models.HomeAssistant
+@using SwampTimers.Services.HomeAssistant
+@inject IHomeAssistantClient HaClient
+
+<MudExpansionPanels Class="mt-4">
+	<MudExpansionPanel Text="Home Assistant Actions" MaxHeight="1000">
+		<TitleContent>
+			<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+				<MudIcon Icon="@Icons.Material.Filled.Home" Size="Size.Small" />
+				<MudText Typo="Typo.subtitle1">Home Assistant Actions</MudText>
+				@if (Binding != null && (Binding.OnActivate.Count > 0 || Binding.OnDeactivate.Count > 0))
+				{
+					<MudChip T="string" Size="Size.Small" Color="Color.Info">
+						@(Binding.OnActivate.Count + Binding.OnDeactivate.Count) actions
+					</MudChip>
+				}
+				@if (!_isConnected)
+				{
+					<MudChip T="string" Size="Size.Small" Color="Color.Warning">Not Connected</MudChip>
+				}
+			</MudStack>
+		</TitleContent>
+		<ChildContent>
+			@if (Binding == null)
+			{
+				<MudButton Variant="Variant.Outlined"
+						   Color="Color.Primary"
+						   StartIcon="@Icons.Material.Filled.Add"
+						   OnClick="@EnableBinding">
+					Add Home Assistant Integration
+				</MudButton>
+			}
+			else
+			{
+				<MudStack Spacing="3">
+					<MudSwitch T="bool"
+							   Value="@Binding.IsEnabled"
+							   ValueChanged="@OnEnabledChanged"
+							   Label="Enable Home Assistant Actions"
+							   Color="Color.Success" />
+
+					@if (Binding.IsEnabled)
+					{
+						<MudDivider />
+
+						<MudText Typo="Typo.subtitle2" Color="Color.Success">
+							<MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" Class="mr-1" />
+							On Timer Activate
+						</MudText>
+						<MudText Typo="Typo.caption" Class="mb-2">
+							These actions run when the timer becomes active
+						</MudText>
+
+						@foreach (var action in Binding.OnActivate)
+						{
+							<EntityActionEditor Action="@action"
+											   ActionChanged="@(a => OnActionChanged())"
+											   OnRemoveClicked="@(() => RemoveActivateAction(action))" />
+						}
+
+						<MudButton Variant="Variant.Text"
+								   Color="Color.Primary"
+								   StartIcon="@Icons.Material.Filled.Add"
+								   Size="Size.Small"
+								   OnClick="@AddActivateAction">
+							Add Activate Action
+						</MudButton>
+
+						<MudDivider Class="my-2" />
+
+						<MudText Typo="Typo.subtitle2" Color="Color.Error">
+							<MudIcon Icon="@Icons.Material.Filled.Stop" Size="Size.Small" Class="mr-1" />
+							On Timer Deactivate
+						</MudText>
+						<MudText Typo="Typo.caption" Class="mb-2">
+							These actions run when the timer becomes inactive
+						</MudText>
+
+						@foreach (var action in Binding.OnDeactivate)
+						{
+							<EntityActionEditor Action="@action"
+											   ActionChanged="@(a => OnActionChanged())"
+											   OnRemoveClicked="@(() => RemoveDeactivateAction(action))" />
+						}
+
+						<MudButton Variant="Variant.Text"
+								   Color="Color.Primary"
+								   StartIcon="@Icons.Material.Filled.Add"
+								   Size="Size.Small"
+								   OnClick="@AddDeactivateAction">
+							Add Deactivate Action
+						</MudButton>
+					}
+				</MudStack>
+			}
+		</ChildContent>
+	</MudExpansionPanel>
+</MudExpansionPanels>
+
+@code {
+	[Parameter]
+	public TimerEntityBinding? Binding { get; set; }
+
+	[Parameter]
+	public EventCallback<TimerEntityBinding?> BindingChanged { get; set; }
+
+	private bool _isConnected = false;
+
+	protected override async Task OnInitializedAsync()
+	{
+		try
+		{
+			_isConnected = await HaClient.IsConnectedAsync();
+		}
+		catch
+		{
+			_isConnected = false;
+		}
+	}
+
+	private async Task EnableBinding()
+	{
+		Binding = new TimerEntityBinding();
+		await BindingChanged.InvokeAsync(Binding);
+	}
+
+	private async Task OnEnabledChanged(bool value)
+	{
+		if (Binding != null)
+		{
+			Binding.IsEnabled = value;
+			await BindingChanged.InvokeAsync(Binding);
+		}
+	}
+
+	private async Task AddActivateAction()
+	{
+		if (Binding != null)
+		{
+			Binding.OnActivate.Add(new EntityAction());
+			await BindingChanged.InvokeAsync(Binding);
+		}
+	}
+
+	private async Task AddDeactivateAction()
+	{
+		if (Binding != null)
+		{
+			Binding.OnDeactivate.Add(new EntityAction());
+			await BindingChanged.InvokeAsync(Binding);
+		}
+	}
+
+	private async Task RemoveActivateAction(EntityAction action)
+	{
+		if (Binding != null)
+		{
+			Binding.OnActivate.Remove(action);
+			await BindingChanged.InvokeAsync(Binding);
+		}
+	}
+
+	private async Task RemoveDeactivateAction(EntityAction action)
+	{
+		if (Binding != null)
+		{
+			Binding.OnDeactivate.Remove(action);
+			await BindingChanged.InvokeAsync(Binding);
+		}
+	}
+
+	private async Task OnActionChanged()
+	{
+		await BindingChanged.InvokeAsync(Binding);
+	}
+}

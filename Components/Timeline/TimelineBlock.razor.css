@@ -1,0 +1,120 @@
+.timeline-block {
+	position: absolute;
+	height: 32px;
+	border-radius: 4px;
+	cursor: grab;
+	display: flex;
+	align-items: center;
+	overflow: hidden;
+	transition: box-shadow 0.15s ease, opacity 0.15s ease;
+	z-index: 10;
+	min-width: 20px;
+}
+
+.timeline-block:hover {
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+	z-index: 20;
+}
+
+.timeline-block.dragging {
+	cursor: grabbing;
+	opacity: 0.8;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	z-index: 100;
+}
+
+.timeline-block.disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* Timer type colors */
+.timeline-block.duration {
+	background: var(--mud-palette-primary);
+	color: var(--mud-palette-primary-text);
+}
+
+.timeline-block.timerange {
+	background: var(--mud-palette-secondary);
+	color: var(--mud-palette-secondary-text);
+}
+
+/* Resize handles */
+.resize-handle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 8px;
+	cursor: ew-resize;
+	background: transparent;
+	z-index: 5;
+	opacity: 0;
+	transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.timeline-block:hover .resize-handle {
+	opacity: 1;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+	background: rgba(255, 255, 255, 0.3);
+}
+
+.resize-handle.resize-left {
+	left: 0;
+	border-radius: 4px 0 0 4px;
+}
+
+.resize-handle.resize-right {
+	right: 0;
+	border-radius: 0 4px 4px 0;
+}
+
+/* Block content */
+.block-content {
+	flex: 1;
+	padding: 4px 12px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	pointer-events: none;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.timer-name {
+	font-weight: 500;
+	font-size: 0.8rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.timer-time {
+	font-size: 0.7rem;
+	opacity: 0.9;
+	flex-shrink: 0;
+}
+
+/* Disabled state */
+.timeline-block.disabled .resize-handle {
+	display: none;
+}
+
+/* Drag tooltip */
+.drag-tooltip {
+	position: absolute;
+	top: -28px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: var(--mud-palette-dark);
+	color: var(--mud-palette-dark-text);
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: 0.75rem;
+	white-space: nowrap;
+	z-index: 200;
+	pointer-events: none;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}

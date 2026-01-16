@@ -1,0 +1,163 @@
+@using SwampTimers.Models
+@using SwampTimers.Components.HomeAssistant
+@using PeriodicEvents.Proto
+
+<MudPaper Class="pa-4">
+	<MudTextField @bind-Value="Timer.Name"
+				  Label="Timer Name"
+				  Required="true"
+				  Variant="Variant.Outlined"
+				  Class="mb-3" />
+
+	<MudTextField @bind-Value="Timer.Description"
+				  Label="Description"
+				  Lines="2"
+				  Variant="Variant.Outlined"
+				  Class="mb-3" />
+
+	<MudTextField @bind-Value="_eventName"
+				  Label="Event Name"
+				  Placeholder="e.g., Change furnace filter"
+				  Variant="Variant.Outlined"
+				  Class="mb-3" />
+
+	<MudTextField @bind-Value="_eventDescription"
+				  Label="Event Description"
+				  Lines="2"
+				  Variant="Variant.Outlined"
+				  Class="mb-3" />
+
+	<MudText Typo="Typo.subtitle2" Class="mb-2">Repeat Every</MudText>
+	<MudStack Row="true" Spacing="2" Class="mb-3">
+		<MudNumericField @bind-Value="_periodValue"
+						 Label="Value"
+						 Min="1"
+						 Max="365"
+						 Variant="Variant.Outlined"
+						 Style="max-width: 120px;" />
+		<MudSelect @bind-Value="_periodType"
+				   Label="Period"
+				   Variant="Variant.Outlined"
+				   Style="max-width: 150px;">
+			<MudSelectItem Value="PeriodType.Days">Days</MudSelectItem>
+			<MudSelectItem Value="PeriodType.Weeks">Weeks</MudSelectItem>
+			<MudSelectItem Value="PeriodType.Months">Months</MudSelectItem>
+			<MudSelectItem Value="PeriodType.Years">Years</MudSelectItem>
+		</MudSelect>
+	</MudStack>
+
+	<MudDatePicker @bind-Date="_startDate"
+				   Label="Start Date"
+				   Variant="Variant.Outlined"
+				   Class="mb-3" />
+
+	<MudSwitch @bind-Value="Timer.IsEnabled"
+			   Label="Enabled"
+			   Color="Color.Success" />
+
+	@if (Timer.CurrentOccurrence != null)
+	{
+		var scheduledDate = new DateTime(
+			Timer.CurrentOccurrence.ScheduledDate.Year,
+			Timer.CurrentOccurrence.ScheduledDate.Month,
+			Timer.CurrentOccurrence.ScheduledDate.Day);
+
+		<MudAlert Severity="@(scheduledDate.Date <= DateTime.Today ? Severity.Warning : Severity.Info)" Class="mt-3">
+			@if (scheduledDate.Date < DateTime.Today)
+			{
+				<text>Overdue since @scheduledDate.ToString("MMM d, yyyy")</text>
+			}
+			else if (scheduledDate.Date == DateTime.Today)
+			{
+				<text>Due today</text>
+			}
+			else
+			{
+				<text>Next occurrence: @scheduledDate.ToString("MMM d, yyyy")</text>
+			}
+		</MudAlert>
+	}
+
+	@if (Timer.LastCompletedOccurrence != null)
+	{
+		var completedDate = new DateTime(
+			Timer.LastCompletedOccurrence.CompletedDate.Year,
+			Timer.LastCompletedOccurrence.CompletedDate.Month,
+			Timer.LastCompletedOccurrence.CompletedDate.Day);
+
+		<MudText Typo="Typo.caption" Class="mt-2">
+			Last completed: @completedDate.ToString("MMM d, yyyy")
+		</MudText>
+	}
+
+	<TimerEntityBindingEditor @bind-Binding="Timer.HomeAssistantBinding" />
+</MudPaper>
+
+@code {
+	[Parameter]
+	public RecurringTimer Timer { get; set; } = new();
+
+	[Parameter]
+	public bool IsNew { get; set; } = false;
+
+	private string _eventName
+	{
+		get => Timer.Event.Name;
+		set => Timer.Event.Name = value;
+	}
+
+	private string _eventDescription
+	{
+		get => Timer.Event.Description;
+		set => Timer.Event.Description = value;
+	}
+
+	private int _periodValue
+	{
+		get => Timer.Event.PeriodValue > 0 ? Timer.Event.PeriodValue : 1;
+		set => Timer.Event.PeriodValue = value;
+	}
+
+	private PeriodType _periodType
+	{
+		get => Timer.Event.PeriodType;
+		set => Timer.Event.PeriodType = value;
+	}
+
+	private DateTime? _startDate
+	{
+		get
+		{
+			if (Timer.CurrentOccurrence != null)
+			{
+				return new DateTime(
+					Timer.CurrentOccurrence.ScheduledDate.Year,
+					Timer.CurrentOccurrence.ScheduledDate.Month,
+					Timer.CurrentOccurrence.ScheduledDate.Day);
+			}
+			return DateTime.Today;
+		}
+		set
+		{
+			if (value.HasValue && IsNew)
+			{
+				Timer.InitializeFirstOccurrence(value.Value);
+			}
+		}
+	}
+
+	protected override void OnParametersSet()
+	{
+		// Initialize the event ID if it's empty
+		if (string.IsNullOrEmpty(Timer.Event.Id))
+		{
+			Timer.Event.Id = Guid.NewGuid().ToString();
+		}
+
+		// Set default period if not set
+		if (Timer.Event.PeriodValue <= 0)
+		{
+			Timer.Event.PeriodValue = 1;
+		}
+	}
+}
