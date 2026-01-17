@@ -1,7 +1,11 @@
+# Global ARGs - must be before first FROM to use in FROM statements
+ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base:latest
+ARG BUILD_ARCH=aarch64
+
 # Build stage - use multi-stage build with .NET SDK
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 
-# Accept BUILD_ARCH from builder (default to aarch64 for Home Assistant)
+# Re-declare ARGs for build stage
 ARG BUILD_ARCH=aarch64
 ARG TARGETPLATFORM
 
@@ -42,7 +46,6 @@ RUN if [ -n "${BUILD_ARCH}" ]; then \
       /p:UseAppHost=false
 
 # Runtime stage
-ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base:latest
 FROM ${BUILD_FROM}
 
 # Re-declare ARGs for this stage with defaults
