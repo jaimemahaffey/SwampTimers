@@ -1,29 +1,39 @@
-# Build stage
-ARG BUILD_FROM
-ARG BUILD_ARCH
+# Build stage - use multi-stage build with .NET SDK
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 
-# Re-declare BUILD_ARCH for this stage (ARGs don't persist across FROM)
-ARG BUILD_ARCH
+# Accept BUILD_ARCH from builder (default to aarch64 for Home Assistant)
+ARG BUILD_ARCH=aarch64
+ARG TARGETPLATFORM
 
 WORKDIR /src
 
-# Copy project files and restore (with caching)
+# Copy project files and restore
 COPY ["SwampTimers.csproj", "./"]
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    echo "Restoring NuGet packages..." && \
-    dotnet restore "SwampTimers.csproj" --verbosity minimal
+RUN dotnet restore "SwampTimers.csproj" --verbosity minimal
 
 # Copy source and build
-# Map Home Assistant arch to .NET Runtime Identifier (RID)
-# aarch64 -> linux-arm64, amd64 -> linux-x64
 COPY . .
-RUN DOTNET_RID=$(case "${BUILD_ARCH}" in \
-      "aarch64") echo "linux-arm64" ;; \
-      "amd64") echo "linux-x64" ;; \
-      *) echo "linux-x64" ;; \
-    esac) && \
-    echo "Building for architecture: ${BUILD_ARCH} (RID: ${DOTNET_RID})" && \
+
+# Determine RID from BUILD_ARCH or TARGETPLATFORM
+# Priority: BUILD_ARCH (from HA builder) > TARGETPLATFORM (from buildx) > default
+RUN if [ -n "${BUILD_ARCH}" ]; then \
+      case "${BUILD_ARCH}" in \
+        "aarch64") DOTNET_RID="linux-arm64" ;; \
+        "amd64") DOTNET_RID="linux-x64" ;; \
+        "armv7"|"armhf") DOTNET_RID="linux-arm" ;; \
+        *) DOTNET_RID="linux-arm64" ;; \
+      esac; \
+    elif [ -n "${TARGETPLATFORM}" ]; then \
+      case "${TARGETPLATFORM}" in \
+        "linux/arm64") DOTNET_RID="linux-arm64" ;; \
+        "linux/amd64") DOTNET_RID="linux-x64" ;; \
+        "linux/arm/v7") DOTNET_RID="linux-arm" ;; \
+        *) DOTNET_RID="linux-arm64" ;; \
+      esac; \
+    else \
+      DOTNET_RID="linux-arm64"; \
+    fi && \
+    echo "Building for BUILD_ARCH=${BUILD_ARCH}, TARGETPLATFORM=${TARGETPLATFORM}, RID=${DOTNET_RID}" && \
     dotnet publish "SwampTimers.csproj" \
       -c Release \
       -o /app/publish \
@@ -32,11 +42,12 @@ RUN DOTNET_RID=$(case "${BUILD_ARCH}" in \
       /p:UseAppHost=false
 
 # Runtime stage
+ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base:latest
 FROM ${BUILD_FROM}
 
-# Re-declare ARGs for this stage (ARGs don't persist across FROM)
-ARG BUILD_ARCH
-ARG BUILD_VERSION
+# Re-declare ARGs for this stage with defaults
+ARG BUILD_ARCH=aarch64
+ARG BUILD_VERSION=dev
 
 # Install .NET 9 runtime dependencies
 RUN apk add --no-cache \
@@ -51,14 +62,11 @@ RUN apk add --no-cache \
     jq
 
 # Install .NET runtime from Microsoft
-# Map Home Assistant arch to .NET architecture
 ENV DOTNET_ROOT=/usr/share/dotnet
-RUN DOTNET_ARCH=$(case "${BUILD_ARCH}" in \
-      "aarch64") echo "arm64" ;; \
-      "amd64") echo "x64" ;; \
-      *) echo "x64" ;; \
-    esac) && \
-    echo "Installing .NET runtime for architecture: ${BUILD_ARCH} (dotnet arch: ${DOTNET_ARCH})" && \
+RUN DOTNET_ARCH="arm64" && \
+    if [ "${BUILD_ARCH}" = "amd64" ]; then DOTNET_ARCH="x64"; fi && \
+    if [ "${BUILD_ARCH}" = "i386" ]; then DOTNET_ARCH="x86"; fi && \
+    echo "Installing .NET runtime for BUILD_ARCH=${BUILD_ARCH} (dotnet arch: ${DOTNET_ARCH})" && \
     wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh \
     && chmod +x dotnet-install.sh \
     && ./dotnet-install.sh --channel 9.0 --runtime aspnetcore --install-dir ${DOTNET_ROOT} --architecture ${DOTNET_ARCH} --no-path \
