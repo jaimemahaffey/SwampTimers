@@ -36,6 +36,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 // Add services to the container.
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
