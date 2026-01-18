@@ -1,3 +1,5 @@
+@inject IHttpContextAccessor HttpContextAccessor
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -36,12 +38,24 @@
 @code {
 	private string GetBaseHref()
 	{
+		// Try to get the path base from the current HTTP request
+		var httpContext = HttpContextAccessor?.HttpContext;
+		if (httpContext != null)
+		{
+			var pathBase = httpContext.Request.PathBase.Value;
+			if (!string.IsNullOrEmpty(pathBase))
+			{
+				return pathBase.EndsWith("/") ? pathBase : $"{pathBase}/";
+			}
+		}
+		
+		// Fallback to environment variable
 		var ingressPath = Environment.GetEnvironmentVariable("INGRESS_PATH");
 		if (!string.IsNullOrEmpty(ingressPath))
 		{
-			// Ensure it ends with a slash
 			return ingressPath.EndsWith("/") ? ingressPath : $"{ingressPath}/";
 		}
+		
 		return "/";
 	}
 }
