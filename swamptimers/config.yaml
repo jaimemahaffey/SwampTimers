@@ -1,5 +1,5 @@
 name: SwampTimers
-version: "1.0.10"
+version: "1.0.11"
 slug: swamptimers
 description: Advanced timer scheduling for Home Assistant entities
 url: https://github.com/jaimemahaffey/swamptimers

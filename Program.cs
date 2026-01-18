@@ -104,12 +104,51 @@ if (!app.Environment.IsDevelopment())
 // Use forwarded headers from Ingress proxy
 app.UseForwardedHeaders();
 
-// For Home Assistant Ingress support - handle base path
-var ingressPath = Environment.GetEnvironmentVariable("INGRESS_PATH");
-if (!string.IsNullOrEmpty(ingressPath))
+// Home Assistant Ingress detection middleware
+// HA Ingress proxies requests with the original path, we need to detect and extract the base path
+app.Use(async (context, next) =>
 {
-	app.UsePathBase(new PathString(ingressPath));
-	Console.WriteLine($"Using Ingress path base: {ingressPath}");
+	// Check for X-Ingress-Path header (some HA versions)
+	var ingressPath = context.Request.Headers["X-Ingress-Path"].FirstOrDefault();
+	
+	// If no header, try to detect from Referer or other means
+	if (string.IsNullOrEmpty(ingressPath))
+	{
+		// Check if request path looks like an ingress path
+		var path = context.Request.Path.Value ?? "";
+		var referer = context.Request.Headers["Referer"].FirstOrDefault() ?? "";
+		
+		// HA Ingress paths look like: /api/hassio_ingress/<token>/
+		if (referer.Contains("/api/hassio_ingress/"))
+		{
+			var uri = new Uri(referer);
+			var segments = uri.AbsolutePath.Split('/');
+			// Find the ingress token segment
+			for (int i = 0; i < segments.Length - 1; i++)
+			{
+				if (segments[i] == "hassio_ingress" && i > 0)
+				{
+					ingressPath = string.Join("/", segments.Take(i + 2));
+					break;
+				}
+			}
+		}
+	}
+	
+	if (!string.IsNullOrEmpty(ingressPath))
+	{
+		context.Request.PathBase = new PathString(ingressPath);
+	}
+	
+	await next();
+});
+
+// Static environment variable fallback for path base
+var envIngressPath = Environment.GetEnvironmentVariable("INGRESS_PATH");
+if (!string.IsNullOrEmpty(envIngressPath))
+{
+	app.UsePathBase(new PathString(envIngressPath));
+	Console.WriteLine($"Using Ingress path base from env: {envIngressPath}");
 }
 
 // Don't use HTTPS redirection in add-on (Ingress handles it)
