@@ -22,10 +22,10 @@ WORKDIR /src
 COPY ["SwampTimers.csproj", "./"]
 RUN dotnet restore "SwampTimers.csproj"
 
-# Copy source code and cross-compile for target architecture
+# Copy source code and cross-compile for target architecture (musl for Alpine)
 COPY . .
-RUN DOTNET_RID="linux-arm64" && \
-    if [ "$TARGETARCH" = "amd64" ]; then DOTNET_RID="linux-x64"; fi && \
+RUN DOTNET_RID="linux-musl-arm64" && \
+    if [ "$TARGETARCH" = "amd64" ]; then DOTNET_RID="linux-musl-x64"; fi && \
     echo "Cross-compiling for $DOTNET_RID (TARGETARCH=$TARGETARCH)" && \
     dotnet publish "SwampTimers.csproj" \
         -c Release \
@@ -34,16 +34,16 @@ RUN DOTNET_RID="linux-arm64" && \
         --self-contained false \
         /p:UseAppHost=false
 
-# Download .NET runtime for target architecture (while still on build platform)
-RUN DOTNET_ARCH="arm64" && \
+# Download .NET runtime for Alpine/musl (while still on build platform)
+# Must use linux-musl-* variant for Alpine-based Home Assistant images
+RUN DOTNET_VERSION="9.0.1" && \
+    DOTNET_ARCH="arm64" && \
     if [ "$TARGETARCH" = "amd64" ]; then DOTNET_ARCH="x64"; fi && \
-    echo "Downloading .NET runtime for $DOTNET_ARCH" && \
+    echo "Downloading .NET ASP.NET Core runtime ${DOTNET_VERSION} for linux-musl-${DOTNET_ARCH}" && \
     mkdir -p /dotnet-runtime && \
-    wget -q https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh && \
-    chmod +x /tmp/dotnet-install.sh && \
-    /tmp/dotnet-install.sh --channel 9.0 --runtime aspnetcore \
-       --install-dir /dotnet-runtime --architecture $DOTNET_ARCH --no-path && \
-    rm /tmp/dotnet-install.sh
+    wget -q "https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/${DOTNET_VERSION}/aspnetcore-runtime-${DOTNET_VERSION}-linux-musl-${DOTNET_ARCH}.tar.gz" -O /tmp/dotnet.tar.gz && \
+    tar -xzf /tmp/dotnet.tar.gz -C /dotnet-runtime && \
+    rm /tmp/dotnet.tar.gz
 
 # =============================================================================
 # Runtime stage - Target platform (ARM64 Home Assistant base image)
