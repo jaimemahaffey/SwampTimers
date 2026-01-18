@@ -157,7 +157,23 @@ if (app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-app.UseStaticFiles();
+// Configure static files with proper MIME types
+var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+// Ensure common web file types have correct MIME types
+provider.Mappings[".css"] = "text/css";
+provider.Mappings[".js"] = "application/javascript";
+provider.Mappings[".json"] = "application/json";
+provider.Mappings[".woff"] = "font/woff";
+provider.Mappings[".woff2"] = "font/woff2";
+provider.Mappings[".ttf"] = "font/ttf";
+provider.Mappings[".svg"] = "image/svg+xml";
+provider.Mappings[".png"] = "image/png";
+provider.Mappings[".ico"] = "image/x-icon";
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = provider
+});
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>()

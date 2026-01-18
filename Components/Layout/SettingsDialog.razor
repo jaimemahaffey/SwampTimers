@@ -1,0 +1,112 @@
+@using SwampTimers.Models
+@using Microsoft.Extensions.Options
+@inject IOptions<StorageOptions> StorageOptions
+
+<MudDialog>
+	<TitleContent>
+		<MudText Typo="Typo.h6">
+			<MudIcon Icon="@Icons.Material.Filled.Settings" Class="mr-2" />
+			Settings
+		</MudText>
+	</TitleContent>
+	<DialogContent>
+		<MudStack Spacing="4">
+			<MudAlert Severity="Severity.Info" Dense="true">
+				Storage settings are configured via add-on options. Changes require a restart.
+			</MudAlert>
+
+			<MudStack Spacing="2">
+				<MudText Typo="Typo.subtitle2">Current Storage Type</MudText>
+				<MudChip T="string" Color="@GetStorageTypeColor()" Size="Size.Medium">
+					@_storageType.ToString()
+				</MudChip>
+			</MudStack>
+
+			<MudStack Spacing="2">
+				<MudText Typo="Typo.subtitle2">Storage File Path</MudText>
+				<MudText Typo="Typo.body2" Class="mud-text-secondary">
+					<MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Class="mr-1" />
+					@_storagePath
+				</MudText>
+			</MudStack>
+
+			<MudDivider />
+
+			<MudText Typo="Typo.subtitle2">Storage Options</MudText>
+
+			<MudGrid Spacing="2">
+				<MudItem xs="12" sm="6">
+					<MudPaper Class="pa-3" Outlined="true">
+						<MudStack Spacing="1">
+							<MudStack Row="true" AlignItems="AlignItems.Center">
+								<MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Small" />
+								<MudText Typo="Typo.subtitle2">SQLite</MudText>
+								@if (_storageType == StorageType.Sqlite)
+								{
+									<MudChip T="string" Color="Color.Success" Size="Size.Small">Active</MudChip>
+								}
+							</MudStack>
+							<MudText Typo="Typo.caption" Class="mud-text-secondary">
+								Relational database storage
+							</MudText>
+						</MudStack>
+					</MudPaper>
+				</MudItem>
+
+				<MudItem xs="12" sm="6">
+					<MudPaper Class="pa-3" Outlined="true">
+						<MudStack Spacing="1">
+							<MudStack Row="true" AlignItems="AlignItems.Center">
+								<MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" />
+								<MudText Typo="Typo.subtitle2">YAML</MudText>
+								@if (_storageType == StorageType.Yaml)
+								{
+									<MudChip T="string" Color="Color.Success" Size="Size.Small">Active</MudChip>
+								}
+							</MudStack>
+							<MudText Typo="Typo.caption" Class="mud-text-secondary">
+								Human-readable text format
+							</MudText>
+						</MudStack>
+					</MudPaper>
+				</MudItem>
+			</MudGrid>
+		</MudStack>
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="Close" Variant="Variant.Filled" Color="Color.Primary">Close</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	[CascadingParameter]
+	private IMudDialogInstance? MudDialog { get; set; }
+
+	private StorageType _storageType = StorageType.Sqlite;
+	private string _storagePath = string.Empty;
+
+	protected override void OnInitialized()
+	{
+		var options = StorageOptions.Value;
+		_storageType = options.StorageType;
+
+		_storagePath = _storageType switch
+		{
+			StorageType.Sqlite => options.SqlitePath,
+			StorageType.Yaml => options.YamlPath,
+			_ => "Unknown"
+		};
+	}
+
+	private Color GetStorageTypeColor()
+	{
+		return _storageType switch
+		{
+			StorageType.Sqlite => Color.Primary,
+			StorageType.Yaml => Color.Secondary,
+			_ => Color.Default
+		};
+	}
+
+	private void Close() => MudDialog?.Close();
+}
