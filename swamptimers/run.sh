@@ -54,6 +54,20 @@ if [ -n "$INGRESS_PATH" ]; then
     echo "Ingress path: ${INGRESS_PATH}"
 fi
 
+# Home Assistant Integration diagnostics
+echo ""
+echo "=== Home Assistant Integration ==="
+if [ -n "$SUPERVISOR_TOKEN" ]; then
+    echo "Supervisor Token: PRESENT (${#SUPERVISOR_TOKEN} chars)"
+    echo "Client Mode: REAL (will connect to Home Assistant)"
+else
+    echo "Supervisor Token: NOT FOUND"
+    echo "Client Mode: MOCK (using fake entities for testing)"
+fi
+echo "API URL: ${HomeAssistant__ApiUrl}"
+echo "=================================="
+echo ""
+
 # Ensure data directory exists
 mkdir -p /data
 

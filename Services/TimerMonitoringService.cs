@@ -12,16 +12,19 @@ public class TimerMonitoringService : BackgroundService
 {
 	private readonly ILogger<TimerMonitoringService> _logger;
 	private readonly IServiceProvider _serviceProvider;
+	private readonly IActionLogService _actionLogService;
 	private readonly int _checkIntervalSeconds;
 	private readonly Dictionary<int, bool> _lastActiveStates = new();
 
 	public TimerMonitoringService(
 		ILogger<TimerMonitoringService> logger,
 		IServiceProvider serviceProvider,
+		IActionLogService actionLogService,
 		IConfiguration configuration)
 	{
 		_logger = logger;
 		_serviceProvider = serviceProvider;
+		_actionLogService = actionLogService;
 		_checkIntervalSeconds = configuration.GetValue<int>("TimerMonitoring:IntervalSeconds", 30);
 	}
 
@@ -135,11 +138,20 @@ public class TimerMonitoringService : BackgroundService
 			return;
 		}
 
+		var eventType = isActivation ? "Activated" : "Deactivated";
 		_logger.LogInformation("Executing {Count} HA actions for timer '{Name}' ({Event})",
-			actions.Count, timer.Name, isActivation ? "activation" : "deactivation");
+			actions.Count, timer.Name, eventType);
 
 		foreach (var action in actions)
 		{
+			var logEntry = new ActionLogEntry
+			{
+				TimerId = Guid.Parse(timer.Id.ToString()),
+				TimerName = timer.Name,
+				EventType = eventType,
+				EntityId = action.EntityId ?? string.Empty
+			};
+
 			try
 			{
 				bool success = action.ActionType switch
@@ -149,6 +161,9 @@ public class TimerMonitoringService : BackgroundService
 					_ => false
 				};
 
+				logEntry.Success = success;
+				logEntry.Action = GetActionDescription(action, isActivation);
+
 				if (success)
 				{
 					_logger.LogInformation("  ✓ {ActionType}: {EntityId}",
@@ -156,15 +171,39 @@ public class TimerMonitoringService : BackgroundService
 				}
 				else
 				{
+					logEntry.ErrorMessage = "Action returned false";
 					_logger.LogWarning("  ✗ Failed {ActionType}: {EntityId}",
 						action.ActionType, action.EntityId);
 				}
 			}
 			catch (Exception ex)
 			{
+				logEntry.Success = false;
+				logEntry.ErrorMessage = ex.Message;
+				logEntry.Action = GetActionDescription(action, isActivation);
 				_logger.LogError(ex, "  ✗ Exception executing action for {EntityId}", action.EntityId);
 			}
+
+			// Log the action
+			try
+			{
+				await _actionLogService.LogActionAsync(logEntry);
+			}
+			catch (Exception ex)
+			{
+				_logger.LogWarning(ex, "Failed to write action log entry");
+			}
 		}
+	}
+
+	private static string GetActionDescription(EntityAction action, bool isActivation)
+	{
+		return action.ActionType switch
+		{
+			ActionType.Toggle => isActivation ? "Turn On" : "Turn Off",
+			ActionType.ServiceCall => $"Call {action.ServiceDomain}.{action.ServiceName}",
+			_ => "Unknown"
+		};
 	}
 
 	private async Task<bool> ExecuteToggleAsync(IHomeAssistantClient client, EntityAction action, bool turnOn)

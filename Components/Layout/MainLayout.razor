@@ -9,18 +9,27 @@
 		</MudContainer>
 	</MudMainContent>
 	
-	<!-- Floating settings button in top-right corner -->
-	<MudIconButton Icon="@Icons.Material.Filled.Settings"
-	               Color="Color.Default"
-	               Size="Size.Medium"
-	               OnClick="OpenSettings"
-	               Title="Settings"
-	               Style="position: fixed; top: 8px; right: 8px; z-index: 1000; opacity: 0.7;"
-	               Class="settings-btn" />
+	<!-- Floating buttons in top-right corner -->
+	<div style="position: fixed; top: 8px; right: 8px; z-index: 1000; display: flex; gap: 4px;">
+		<MudIconButton Icon="@Icons.Material.Filled.History"
+		               Color="Color.Default"
+		               Size="Size.Medium"
+		               OnClick="OpenHistory"
+		               Title="Action History"
+		               Style="opacity: 0.7;"
+		               Class="toolbar-btn" />
+		<MudIconButton Icon="@Icons.Material.Filled.Settings"
+		               Color="Color.Default"
+		               Size="Size.Medium"
+		               OnClick="OpenSettings"
+		               Title="Settings"
+		               Style="opacity: 0.7;"
+		               Class="toolbar-btn" />
+	</div>
 </MudLayout>
 
 <style>
-	.settings-btn:hover {
+	.toolbar-btn:hover {
 		opacity: 1 !important;
 	}
 </style>
@@ -73,5 +82,17 @@
 		};
 
 		await DialogService.ShowAsync<SettingsDialog>("Settings", options);
+	}
+
+	private async Task OpenHistory()
+	{
+		var options = new DialogOptions
+		{
+			CloseOnEscapeKey = true,
+			MaxWidth = MaxWidth.Large,
+			FullWidth = true
+		};
+
+		await DialogService.ShowAsync<ActionHistoryDialog>("Action History", options);
 	}
 }
