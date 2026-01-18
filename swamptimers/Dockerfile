@@ -5,8 +5,16 @@
 # copy files to ARM64 runtime stage (avoids QEMU issues with install scripts)
 # =============================================================================
 
-# Build stage - runs NATIVELY on x64
-FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/sdk:9.0 AS build
+# Use Docker's automatic platform args
+ARG BUILDPLATFORM
+ARG TARGETPLATFORM
+ARG TARGETARCH
+
+# Build stage - runs on the BUILD platform (native x64 on GitHub runners)
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+
+# Re-declare ARGs after FROM
+ARG TARGETARCH
 
 WORKDIR /src
 
@@ -14,29 +22,35 @@ WORKDIR /src
 COPY ["SwampTimers.csproj", "./"]
 RUN dotnet restore "SwampTimers.csproj"
 
-# Copy source code and cross-compile for ARM64
+# Copy source code and cross-compile for target architecture
 COPY . .
-RUN dotnet publish "SwampTimers.csproj" \
-    -c Release \
-    -o /app/publish \
-    --runtime linux-arm64 \
-    --self-contained false \
-    /p:UseAppHost=false
+RUN DOTNET_RID="linux-arm64" && \
+    if [ "$TARGETARCH" = "amd64" ]; then DOTNET_RID="linux-x64"; fi && \
+    echo "Cross-compiling for $DOTNET_RID (TARGETARCH=$TARGETARCH)" && \
+    dotnet publish "SwampTimers.csproj" \
+        -c Release \
+        -o /app/publish \
+        --runtime $DOTNET_RID \
+        --self-contained false \
+        /p:UseAppHost=false
 
-# Download .NET runtime for ARM64 (in x64 stage to avoid QEMU)
-RUN mkdir -p /dotnet-arm64 \
-    && wget -q https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh \
-    && chmod +x /tmp/dotnet-install.sh \
-    && /tmp/dotnet-install.sh --channel 9.0 --runtime aspnetcore \
-       --install-dir /dotnet-arm64 --architecture arm64 --no-path \
-    && rm /tmp/dotnet-install.sh
+# Download .NET runtime for target architecture (while still on build platform)
+RUN DOTNET_ARCH="arm64" && \
+    if [ "$TARGETARCH" = "amd64" ]; then DOTNET_ARCH="x64"; fi && \
+    echo "Downloading .NET runtime for $DOTNET_ARCH" && \
+    mkdir -p /dotnet-runtime && \
+    wget -q https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh && \
+    chmod +x /tmp/dotnet-install.sh && \
+    /tmp/dotnet-install.sh --channel 9.0 --runtime aspnetcore \
+       --install-dir /dotnet-runtime --architecture $DOTNET_ARCH --no-path && \
+    rm /tmp/dotnet-install.sh
 
 # =============================================================================
-# Runtime stage - ARM64 Home Assistant base image
+# Runtime stage - Target platform (ARM64 Home Assistant base image)
 # =============================================================================
 FROM ghcr.io/home-assistant/aarch64-base:latest
 
-# Install .NET runtime dependencies (these packages don't have post-install scripts)
+# Install .NET runtime dependencies
 # Using --no-scripts to avoid QEMU issues with post-install scripts
 RUN apk add --no-cache --no-scripts \
     icu-libs \
@@ -51,7 +65,7 @@ RUN apk add --no-cache --no-scripts \
 
 # Copy pre-downloaded .NET runtime from build stage
 ENV DOTNET_ROOT=/usr/share/dotnet
-COPY --from=build /dotnet-arm64 ${DOTNET_ROOT}
+COPY --from=build /dotnet-runtime ${DOTNET_ROOT}
 ENV PATH="${PATH}:${DOTNET_ROOT}"
 
 # Copy published app from build stage
