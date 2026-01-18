@@ -4,32 +4,27 @@ on:
   push:
     branches:
       - main
-      - feature/home-assistant-integration
+      - gifted-lumiere
   pull_request:
     branches:
       - main
-  release:
-    types:
-      - published
 
 permissions:
   contents: read
   packages: write
-  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/swamptimers-aarch64
 
 jobs:
   build:
-    name: Build add-on (ARM64)
+    name: Build and push add-on (ARM64)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
-        with:
-          cosign-release: 'v2.6.0'
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -39,8 +34,7 @@ jobs:
 
       - name: Setup build context
         run: |
-          # Copy necessary files into swamptimers/ for the build context
-          # Also create swamptimers/swamptimers/ for run.sh to maintain path compatibility
+          # Copy .NET project files into swamptimers/ for the build context
           cp *.csproj swamptimers/
           cp -r Components swamptimers/
           cp -r Models swamptimers/
@@ -49,33 +43,48 @@ jobs:
           cp -r wwwroot swamptimers/
           cp Program.cs swamptimers/
           cp appsettings*.json swamptimers/ || true
+          cp -r period_models swamptimers/ || true
+          
+          # Create nested directory for run.sh path compatibility
           mkdir -p swamptimers/swamptimers
           cp swamptimers/run.sh swamptimers/swamptimers/run.sh
+          
+          echo "Build context contents:"
           ls -la swamptimers/
-          ls -la swamptimers/swamptimers/
 
       - name: Get version from config
         id: version
         run: |
           VERSION=$(grep "version:" swamptimers/config.yaml | awk '{print $2}' | tr -d '"')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push add-on
-        uses: home-assistant/builder@master
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
         with:
-          args: |
-            --aarch64 \
-            --target swamptimers \
-            --docker-hub ghcr.io/${{ github.repository_owner }} \
-            --image swamptimers-{arch} \
-            --version ${{ steps.version.outputs.version }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: swamptimers
+          platforms: linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   lint:
     name: Lint add-on configuration
