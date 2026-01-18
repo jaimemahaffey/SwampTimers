@@ -8,11 +8,11 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<base href="@GetBaseHref()" />
 	<link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
-	<link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
-	<link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
-	<link rel="stylesheet" href="css/app.css" />
-	<link rel="stylesheet" href="SwampTimers.styles.css" />
-	<link rel="icon" type="image/png" href="favicon.png" />
+	<link href="@($"{GetBaseHref()}_content/MudBlazor/MudBlazor.min.css")" rel="stylesheet" />
+	<link rel="stylesheet" href="@($"{GetBaseHref()}lib/bootstrap/dist/css/bootstrap.min.css")" />
+	<link rel="stylesheet" href="@($"{GetBaseHref()}css/app.css")" />
+	<link rel="stylesheet" href="@($"{GetBaseHref()}SwampTimers.styles.css")" />
+	<link rel="icon" type="image/png" href="@($"{GetBaseHref()}favicon.png")" />
 	<HeadOutlet />
 </head>
 
@@ -29,8 +29,8 @@
 		<a class="dismiss">🗙</a>
 	</div>
 
-	<script src="_framework/blazor.web.js"></script>
-	<script src="_content/MudBlazor/MudBlazor.min.js"></script>
+	<script src="@($"{GetBaseHref()}_framework/blazor.web.js")"></script>
+	<script src="@($"{GetBaseHref()}_content/MudBlazor/MudBlazor.min.js")"></script>
 </body>
 
 </html>
@@ -46,6 +46,33 @@
 			if (!string.IsNullOrEmpty(pathBase))
 			{
 				return pathBase.EndsWith("/") ? pathBase : $"{pathBase}/";
+			}
+			
+			// Try to detect from X-Ingress-Path header
+			var ingressHeader = httpContext.Request.Headers["X-Ingress-Path"].FirstOrDefault();
+			if (!string.IsNullOrEmpty(ingressHeader))
+			{
+				return ingressHeader.EndsWith("/") ? ingressHeader : $"{ingressHeader}/";
+			}
+			
+			// Try to detect from the request URL path for HA Ingress pattern
+			var requestPath = httpContext.Request.Path.Value ?? "";
+			var fullUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}{httpContext.Request.PathBase}{requestPath}";
+			
+			// Check Referer header for ingress path
+			var referer = httpContext.Request.Headers["Referer"].FirstOrDefault();
+			if (!string.IsNullOrEmpty(referer) && referer.Contains("/api/hassio_ingress/"))
+			{
+				try
+				{
+					var uri = new Uri(referer);
+					var match = System.Text.RegularExpressions.Regex.Match(uri.AbsolutePath, @"(/api/hassio_ingress/[^/]+)");
+					if (match.Success)
+					{
+						return $"{match.Groups[1].Value}/";
+					}
+				}
+				catch { }
 			}
 		}
 		
