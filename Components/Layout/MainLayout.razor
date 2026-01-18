@@ -1,14 +1,29 @@
 @inherits LayoutComponentBase
+@inject IDialogService DialogService
 
 <MudThemeProvider @rendermode="InteractiveServer" Theme="_theme" @bind-IsDarkMode="_isDarkMode" />
 <MudLayout>
-	<TopNavBar />
 	<MudMainContent>
-		<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+		<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
 			@Body
 		</MudContainer>
 	</MudMainContent>
+	
+	<!-- Floating settings button in top-right corner -->
+	<MudIconButton Icon="@Icons.Material.Filled.Settings"
+	               Color="Color.Default"
+	               Size="Size.Medium"
+	               OnClick="OpenSettings"
+	               Title="Settings"
+	               Style="position: fixed; top: 8px; right: 8px; z-index: 1000; opacity: 0.7;"
+	               Class="settings-btn" />
 </MudLayout>
+
+<style>
+	.settings-btn:hover {
+		opacity: 1 !important;
+	}
+</style>
 
 @code {
 	private bool _isDarkMode = true;
@@ -47,4 +62,16 @@
 			Info = "#2196f3"
 		}
 	};
+
+	private async Task OpenSettings()
+	{
+		var options = new DialogOptions
+		{
+			CloseOnEscapeKey = true,
+			MaxWidth = MaxWidth.Small,
+			FullWidth = true
+		};
+
+		await DialogService.ShowAsync<SettingsDialog>("Settings", options);
+	}
 }
