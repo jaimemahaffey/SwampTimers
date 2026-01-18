@@ -72,14 +72,27 @@ builder.Services.Configure<HomeAssistantOptions>(options =>
 
 // Register IHomeAssistantClient - use real client if token is available, mock otherwise
 var supervisorToken = Environment.GetEnvironmentVariable("SUPERVISOR_TOKEN");
-if (!string.IsNullOrEmpty(supervisorToken))
+var useRealClient = !string.IsNullOrEmpty(supervisorToken);
+Console.WriteLine($"[HA Integration] SUPERVISOR_TOKEN present: {useRealClient}");
+if (useRealClient)
 {
+	Console.WriteLine("[HA Integration] Using REAL HomeAssistantClient");
 	builder.Services.AddHttpClient<IHomeAssistantClient, HomeAssistantClient>();
 }
 else
 {
+	Console.WriteLine("[HA Integration] Using MOCK HomeAssistantClient (no token found)");
 	builder.Services.AddScoped<IHomeAssistantClient, MockHomeAssistantClient>();
 }
+
+// Store client type for UI access
+builder.Services.AddSingleton(new HomeAssistantClientInfo { IsRealClient = useRealClient });
+
+// Action Log Service - stores execution history
+var actionLogPath = builder.Environment.IsDevelopment()
+	? Path.Combine(Directory.GetCurrentDirectory(), "data", "action_log.yaml")
+	: "/data/action_log.yaml";
+builder.Services.AddSingleton<IActionLogService>(new YamlActionLogService(actionLogPath, maxEntries: 100));
 
 // Background Timer Monitoring Service
 builder.Services.AddHostedService<TimerMonitoringService>();

@@ -1,0 +1,155 @@
+@using SwampTimers.Models
+@using SwampTimers.Services
+@inject IActionLogService ActionLogService
+
+<MudDialog>
+	<TitleContent>
+		<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+			<MudIcon Icon="@Icons.Material.Filled.History" />
+			<MudText Typo="Typo.h6">Action History</MudText>
+			<MudSpacer />
+			<MudIconButton Icon="@Icons.Material.Filled.Refresh" 
+			               Size="Size.Small" 
+			               OnClick="LoadHistory"
+			               Disabled="_isLoading"
+			               Title="Refresh" />
+		</MudStack>
+	</TitleContent>
+	<DialogContent>
+		@if (_isLoading)
+		{
+			<MudStack AlignItems="AlignItems.Center" Class="pa-4">
+				<MudProgressCircular Indeterminate="true" />
+				<MudText Typo="Typo.body2">Loading history...</MudText>
+			</MudStack>
+		}
+		else if (!_entries.Any())
+		{
+			<MudAlert Severity="Severity.Info">
+				No action history yet. Actions will be logged when timers activate or deactivate.
+			</MudAlert>
+		}
+		else
+		{
+			<MudTable Items="_entries" Dense="true" Hover="true" Striped="true" 
+			          FixedHeader="true" Height="400px">
+				<HeaderContent>
+					<MudTh>Time</MudTh>
+					<MudTh>Timer</MudTh>
+					<MudTh>Event</MudTh>
+					<MudTh>Entity</MudTh>
+					<MudTh>Action</MudTh>
+					<MudTh>Status</MudTh>
+				</HeaderContent>
+				<RowTemplate>
+					<MudTd DataLabel="Time">
+						<MudText Typo="Typo.caption">
+							@context.Timestamp.ToLocalTime().ToString("MM/dd HH:mm:ss")
+						</MudText>
+					</MudTd>
+					<MudTd DataLabel="Timer">
+						<MudText Typo="Typo.body2">@context.TimerName</MudText>
+					</MudTd>
+					<MudTd DataLabel="Event">
+						<MudChip T="string" 
+						         Size="Size.Small" 
+						         Color="@(context.EventType == "Activated" ? Color.Success : Color.Default)">
+							@context.EventType
+						</MudChip>
+					</MudTd>
+					<MudTd DataLabel="Entity">
+						<MudText Typo="Typo.caption" Class="mud-text-secondary">
+							@(string.IsNullOrEmpty(context.EntityId) ? "-" : context.EntityId)
+						</MudText>
+					</MudTd>
+					<MudTd DataLabel="Action">
+						<MudText Typo="Typo.body2">@context.Action</MudText>
+					</MudTd>
+					<MudTd DataLabel="Status">
+						@if (context.Success)
+						{
+							<MudIcon Icon="@Icons.Material.Filled.CheckCircle" 
+							         Color="Color.Success" 
+							         Size="Size.Small"
+							         Title="Success" />
+						}
+						else
+						{
+							<MudTooltip Text="@(context.ErrorMessage ?? "Failed")">
+								<MudIcon Icon="@Icons.Material.Filled.Error" 
+								         Color="Color.Error" 
+								         Size="Size.Small" />
+							</MudTooltip>
+						}
+					</MudTd>
+				</RowTemplate>
+			</MudTable>
+			
+			<MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-2">
+				<MudText Typo="Typo.caption" Class="mud-text-secondary">
+					Showing @_entries.Count() entries (max 100)
+				</MudText>
+				<MudButton Size="Size.Small" 
+				           Color="Color.Error" 
+				           Variant="Variant.Text"
+				           StartIcon="@Icons.Material.Filled.DeleteForever"
+				           OnClick="ClearHistory">
+					Clear History
+				</MudButton>
+			</MudStack>
+		}
+	</DialogContent>
+	<DialogActions>
+		<MudButton OnClick="Close" Variant="Variant.Filled" Color="Color.Primary">Close</MudButton>
+	</DialogActions>
+</MudDialog>
+
+@code {
+	[CascadingParameter]
+	private IMudDialogInstance? MudDialog { get; set; }
+
+	private IEnumerable<ActionLogEntry> _entries = Enumerable.Empty<ActionLogEntry>();
+	private bool _isLoading = true;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadHistory();
+	}
+
+	private async Task LoadHistory()
+	{
+		_isLoading = true;
+		StateHasChanged();
+
+		try
+		{
+			_entries = await ActionLogService.GetRecentEntriesAsync(100);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error loading action history: {ex.Message}");
+			_entries = Enumerable.Empty<ActionLogEntry>();
+		}
+		finally
+		{
+			_isLoading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task ClearHistory()
+	{
+		try
+		{
+			await ActionLogService.ClearAsync();
+			_entries = Enumerable.Empty<ActionLogEntry>();
+			StateHasChanged();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error clearing action history: {ex.Message}");
+		}
+	}
+
+	private void Close() => MudDialog?.Close();
+}

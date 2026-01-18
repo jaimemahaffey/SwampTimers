@@ -1,6 +1,10 @@
 @using SwampTimers.Models
+@using SwampTimers.Models.HomeAssistant
+@using SwampTimers.Services.HomeAssistant
 @using Microsoft.Extensions.Options
 @inject IOptions<StorageOptions> StorageOptions
+@inject HomeAssistantClientInfo ClientInfo
+@inject IHomeAssistantClient HaClient
 
 <MudDialog>
 	<TitleContent>
@@ -11,66 +15,78 @@
 	</TitleContent>
 	<DialogContent>
 		<MudStack Spacing="4">
+			<!-- Home Assistant Connection Status -->
+			<MudText Typo="Typo.subtitle1" Class="mt-2">Home Assistant Integration</MudText>
+			
+			<MudPaper Class="pa-3" Outlined="true">
+				<MudStack Spacing="2">
+					<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+						<MudIcon Icon="@Icons.Material.Filled.SmartHome" 
+						         Color="@(ClientInfo.IsRealClient ? Color.Success : Color.Warning)" />
+						<MudText Typo="Typo.subtitle2">Client Mode</MudText>
+						<MudChip T="string" 
+						         Color="@(ClientInfo.IsRealClient ? Color.Success : Color.Warning)" 
+						         Size="Size.Small">
+							@(ClientInfo.IsRealClient ? "Real" : "Mock")
+						</MudChip>
+					</MudStack>
+					
+					@if (!ClientInfo.IsRealClient)
+					{
+						<MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+							Using mock client. SUPERVISOR_TOKEN not found.
+							Ensure the add-on has <code>homeassistant_api: true</code> in config.
+						</MudAlert>
+					}
+					
+					<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+						<MudIcon Icon="@GetConnectionIcon()" 
+						         Color="@GetConnectionColor()" 
+						         Size="Size.Small" />
+						<MudText Typo="Typo.body2">
+							@if (_isCheckingConnection)
+							{
+								<text>Checking connection...</text>
+							}
+							else if (_isConnected)
+							{
+								<text>Connected - @_entityCount entities available</text>
+							}
+							else
+							{
+								<text>Not connected</text>
+							}
+						</MudText>
+						<MudIconButton Icon="@Icons.Material.Filled.Refresh" 
+						               Size="Size.Small" 
+						               OnClick="CheckConnection"
+						               Disabled="_isCheckingConnection"
+						               Title="Test connection" />
+					</MudStack>
+				</MudStack>
+			</MudPaper>
+
+			<MudDivider />
+
+			<!-- Storage Configuration -->
+			<MudText Typo="Typo.subtitle1">Storage Configuration</MudText>
+			
 			<MudAlert Severity="Severity.Info" Dense="true">
 				Storage settings are configured via add-on options. Changes require a restart.
 			</MudAlert>
 
 			<MudStack Spacing="2">
-				<MudText Typo="Typo.subtitle2">Current Storage Type</MudText>
-				<MudChip T="string" Color="@GetStorageTypeColor()" Size="Size.Medium">
-					@_storageType.ToString()
-				</MudChip>
-			</MudStack>
-
-			<MudStack Spacing="2">
-				<MudText Typo="Typo.subtitle2">Storage File Path</MudText>
-				<MudText Typo="Typo.body2" Class="mud-text-secondary">
-					<MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Class="mr-1" />
+				<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+					<MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Small" />
+					<MudText Typo="Typo.subtitle2">Current Storage</MudText>
+					<MudChip T="string" Color="@GetStorageTypeColor()" Size="Size.Small">
+						@_storageType.ToString()
+					</MudChip>
+				</MudStack>
+				<MudText Typo="Typo.body2" Class="mud-text-secondary ml-7">
 					@_storagePath
 				</MudText>
 			</MudStack>
-
-			<MudDivider />
-
-			<MudText Typo="Typo.subtitle2">Storage Options</MudText>
-
-			<MudGrid Spacing="2">
-				<MudItem xs="12" sm="6">
-					<MudPaper Class="pa-3" Outlined="true">
-						<MudStack Spacing="1">
-							<MudStack Row="true" AlignItems="AlignItems.Center">
-								<MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Small" />
-								<MudText Typo="Typo.subtitle2">SQLite</MudText>
-								@if (_storageType == StorageType.Sqlite)
-								{
-									<MudChip T="string" Color="Color.Success" Size="Size.Small">Active</MudChip>
-								}
-							</MudStack>
-							<MudText Typo="Typo.caption" Class="mud-text-secondary">
-								Relational database storage
-							</MudText>
-						</MudStack>
-					</MudPaper>
-				</MudItem>
-
-				<MudItem xs="12" sm="6">
-					<MudPaper Class="pa-3" Outlined="true">
-						<MudStack Spacing="1">
-							<MudStack Row="true" AlignItems="AlignItems.Center">
-								<MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" />
-								<MudText Typo="Typo.subtitle2">YAML</MudText>
-								@if (_storageType == StorageType.Yaml)
-								{
-									<MudChip T="string" Color="Color.Success" Size="Size.Small">Active</MudChip>
-								}
-							</MudStack>
-							<MudText Typo="Typo.caption" Class="mud-text-secondary">
-								Human-readable text format
-							</MudText>
-						</MudStack>
-					</MudPaper>
-				</MudItem>
-			</MudGrid>
 		</MudStack>
 	</DialogContent>
 	<DialogActions>
@@ -84,8 +100,12 @@
 
 	private StorageType _storageType = StorageType.Sqlite;
 	private string _storagePath = string.Empty;
+	
+	private bool _isCheckingConnection = false;
+	private bool _isConnected = false;
+	private int _entityCount = 0;
 
-	protected override void OnInitialized()
+	protected override async Task OnInitializedAsync()
 	{
 		var options = StorageOptions.Value;
 		_storageType = options.StorageType;
@@ -96,6 +116,50 @@
 			StorageType.Yaml => options.YamlPath,
 			_ => "Unknown"
 		};
+		
+		await CheckConnection();
+	}
+
+	private async Task CheckConnection()
+	{
+		_isCheckingConnection = true;
+		StateHasChanged();
+		
+		try
+		{
+			_isConnected = await HaClient.IsConnectedAsync();
+			if (_isConnected)
+			{
+				var entities = await HaClient.GetEntitiesAsync();
+				_entityCount = entities.Count();
+			}
+			else
+			{
+				_entityCount = 0;
+			}
+		}
+		catch
+		{
+			_isConnected = false;
+			_entityCount = 0;
+		}
+		finally
+		{
+			_isCheckingConnection = false;
+			StateHasChanged();
+		}
+	}
+
+	private string GetConnectionIcon()
+	{
+		if (_isCheckingConnection) return Icons.Material.Filled.Sync;
+		return _isConnected ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error;
+	}
+
+	private Color GetConnectionColor()
+	{
+		if (_isCheckingConnection) return Color.Default;
+		return _isConnected ? Color.Success : Color.Error;
 	}
 
 	private Color GetStorageTypeColor()
