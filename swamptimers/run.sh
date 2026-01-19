@@ -63,6 +63,20 @@ if [ -n "$SUPERVISOR_TOKEN" ]; then
 else
     echo "Supervisor Token: NOT FOUND"
     echo "Client Mode: MOCK (using fake entities for testing)"
+    echo ""
+    echo "DEBUG: Checking for token in alternative locations..."
+    # Check if token might be in a file
+    if [ -f "/run/s6/container_environment/SUPERVISOR_TOKEN" ]; then
+        echo "  Found: /run/s6/container_environment/SUPERVISOR_TOKEN"
+        SUPERVISOR_TOKEN=$(cat /run/s6/container_environment/SUPERVISOR_TOKEN)
+        export SUPERVISOR_TOKEN
+        export HomeAssistant__SupervisorToken="${SUPERVISOR_TOKEN}"
+        echo "  Token loaded from S6 container environment (${#SUPERVISOR_TOKEN} chars)"
+    fi
+    # List relevant environment variables for debugging
+    echo ""
+    echo "DEBUG: Relevant environment variables:"
+    env | grep -E "^(SUPERVISOR|HASSIO|HOME_ASSISTANT|INGRESS)" | sed 's/=.*/=<redacted>/' || echo "  (none found)"
 fi
 echo "API URL: ${HomeAssistant__ApiUrl}"
 echo "=================================="

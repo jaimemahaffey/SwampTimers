@@ -81,6 +81,10 @@ ENV ASPNETCORE_URLS=http://+:8080
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 
+# S6 Overlay v3: Preserve environment variables (including SUPERVISOR_TOKEN)
+# Without this, S6 clears the environment before starting services
+ENV S6_KEEP_ENV=1
+
 # Home Assistant labels
 LABEL io.hass.name="SwampTimers" \
       io.hass.description="Advanced timer scheduling for Home Assistant" \
