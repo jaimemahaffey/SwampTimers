@@ -46,7 +46,7 @@ export Storage__StorageType="${STORAGE_TYPE}"
 export Storage__YamlPath="/data/timers.yaml"
 export Storage__SqlitePath="/data/timers.db"
 export HomeAssistant__SupervisorToken="${SUPERVISOR_TOKEN}"
-export HomeAssistant__ApiUrl="http://supervisor/core/api"
+export HomeAssistant__ApiUrl="http://supervisor/core"
 export HomeAssistant__UpdateInterval="${UPDATE_INTERVAL}"
 
 # Set Ingress path for URL rewriting (if provided by Supervisor)
