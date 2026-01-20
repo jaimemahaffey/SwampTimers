@@ -6,9 +6,9 @@ namespace SwampTimers.Models.HomeAssistant;
 public class HomeAssistantOptions
 {
 	/// <summary>
-	/// The Home Assistant API URL (e.g., "http://supervisor/core/api")
+	/// The Home Assistant API URL (e.g., "http://supervisor/core")
 	/// </summary>
-	public string ApiUrl { get; set; } = "http://supervisor/core/api";
+	public string ApiUrl { get; set; } = "http://supervisor/core";
 
 	/// <summary>
 	/// The supervisor token for authentication (from SUPERVISOR_TOKEN env var)

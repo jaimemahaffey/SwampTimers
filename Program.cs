@@ -66,7 +66,7 @@ builder.Services.Configure<HomeAssistantOptions>(options =>
 	if (!string.IsNullOrEmpty(supervisorToken))
 	{
 		options.SupervisorToken = supervisorToken;
-		options.ApiUrl = "http://supervisor/core/api";
+		options.ApiUrl = "http://supervisor/core";
 	}
 });
 
